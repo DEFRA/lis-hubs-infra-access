@@ -1,0 +1,19 @@
+{
+  "name": "@livestock/hub-access",
+  "version": "0.1.0",
+  "description": "Shared hub access and capability resolution for the livestock platform.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "vitest run --coverage.enabled false"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "vitest": "4.1.4"
+  },
+  "dependencies": {
+    "@livestock/hub-registry": "file:../hub-registry"
+  }
+}
