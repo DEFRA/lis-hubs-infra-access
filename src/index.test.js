@@ -41,12 +41,12 @@ describe('#hubAccess', () => {
     expect(HUB_ACCESS_STATUS).toBe('active')
   })
 
-  test('Should allow a front-office transaction module for an exact species taxonomy permission', () => {
+  test('Should allow a front-office transaction module for a species-level write permission', () => {
     expect(
       resolveModuleAccess({
         hubId: 'front-office',
         user: {
-          permissions: ['ctt.register']
+          permissions: ['lis-perm-front-office', 'lis-perm-cattle-write']
         },
         module: registerCattleModule
       })
@@ -58,12 +58,32 @@ describe('#hubAccess', () => {
     })
   })
 
-  test('Should deny a front-office transaction module for a manage-only permission', () => {
+  test('Should allow read-only front-office access for an app-specific read permission', () => {
     expect(
       resolveModuleAccess({
         hubId: 'front-office',
         user: {
-          permissions: ['ctt.manage']
+          permissions: [
+            'lis-perm-front-office',
+            'lis-perm-cattle-register-read'
+          ]
+        },
+        module: registerCattleModule
+      })
+    ).toEqual({
+      visible: true,
+      allowed: true,
+      reason: null,
+      capabilities: ['view']
+    })
+  })
+
+  test('Should deny access when the user lacks the current hub portal permission', () => {
+    expect(
+      resolveModuleAccess({
+        hubId: 'front-office',
+        user: {
+          permissions: ['lis-perm-cattle-write']
         },
         module: registerCattleModule
       })
@@ -75,36 +95,42 @@ describe('#hubAccess', () => {
     })
   })
 
-  test('Should allow a front-office status module for any species-scoped permission', () => {
+  test('Should allow a front-office status module for any app permission on the species', () => {
     expect(
       getModuleCapabilitiesForHub({
         hubId: 'front-office',
         user: {
-          permissions: ['ctt.register']
+          permissions: [
+            'lis-perm-front-office',
+            'lis-perm-cattle-register-read'
+          ]
         },
         module: statusCattleModule
       })
     ).toEqual(['view'])
   })
 
-  test('Should give base back-office capabilities for a transactional permission', () => {
+  test('Should give base back-office capabilities for a species-level read permission', () => {
     expect(
       getModuleCapabilitiesForHub({
         hubId: 'back-office',
         user: {
-          permissions: ['ctt.register']
+          permissions: ['lis-perm-back-office', 'lis-perm-cattle-read']
         },
         module: registerCattleModule
       })
-    ).toEqual(['view', 'assist'])
+    ).toEqual(['view'])
   })
 
-  test('Should elevate back-office transactional capabilities for a manage permission', () => {
+  test('Should elevate back-office transactional capabilities for an admin permission', () => {
     expect(
       resolveModuleAccess({
         hubId: 'back-office',
         user: {
-          permissions: ['ctt.manage']
+          permissions: [
+            'lis-perm-back-office',
+            'lis-perm-cattle-register-admin'
+          ]
         },
         module: registerCattleModule
       })
@@ -116,12 +142,12 @@ describe('#hubAccess', () => {
     })
   })
 
-  test('Should allow a back-office permissions module for system.user', () => {
+  test('Should allow a back-office permissions module for user-write access', () => {
     expect(
       resolveModuleAccess({
         hubId: 'back-office',
         user: {
-          permissions: ['system.user']
+          permissions: ['lis-perm-back-office', 'lis-perm-user-write']
         },
         module: permissionsModule
       })
@@ -129,7 +155,7 @@ describe('#hubAccess', () => {
       visible: true,
       allowed: true,
       reason: null,
-      capabilities: ['manage-permissions']
+      capabilities: ['view', 'manage-permissions']
     })
   })
 
@@ -138,7 +164,7 @@ describe('#hubAccess', () => {
       resolveModuleAccess({
         hubId: 'front-office',
         user: {
-          permissions: ['system.user']
+          permissions: ['lis-perm-front-office', 'lis-perm-user-admin']
         },
         module: permissionsModule
       })
@@ -154,7 +180,7 @@ describe('#hubAccess', () => {
     const modules = getAccessibleModulesForHub({
       hubId: 'back-office',
       user: {
-        permissions: ['ctt.register']
+        permissions: ['lis-perm-back-office', 'lis-perm-cattle-read']
       },
       modules: [registerCattleModule, statusCattleModule, permissionsModule]
     })

@@ -13,8 +13,9 @@ This package should depend on hub facts from `@livestock/hub-registry`, not on d
 
 Current implementation notes:
 
-- transactional modules such as `register`, `move`, and `death` resolve differently in `front-office` and `back-office`
-- `front-office` requires the exact species taxonomy permission, for example `ctt.register`
-- `back-office` allows either the exact permission or an elevated `*.manage` permission
-- `status` and `home` modules are species-scoped surfaces, so any permission for the species grants access
-- platform modules such as permission administration can be modeled with a `type` and unlocked by system permissions such as `system.user`
+- raw permissions are expected in the `lis-perm-*` format
+- `lis-perm-front-office` and `lis-perm-back-office` gate access to the corresponding hub
+- species permissions such as `lis-perm-cattle-read` apply across that species
+- app permissions such as `lis-perm-cattle-register-admin` apply to a specific species app
+- `status` and `home` resolve from the best permission found anywhere on the species
+- back-office permission management modules can be modeled with a `type` and unlocked by `lis-perm-user-read`, `lis-perm-user-write`, or `lis-perm-user-admin`

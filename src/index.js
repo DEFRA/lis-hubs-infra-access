@@ -1,16 +1,86 @@
-export const HUB_CAPABILITIES = [
-  'create',
-  'park',
-  'resume',
-  'submit',
-  'view',
-  'assist',
-  'amend',
-  'resubmit',
-  'manage-permissions',
-  'manage-reference-data',
-  'view-audit'
-]
+import { SPECIES } from '@livestock/hub-registry'
+
+const PERMISSION_PREFIX = 'lis-perm-'
+const ACCESS_LEVEL_RANKS = {
+  none: 0,
+  read: 1,
+  write: 2,
+  admin: 3
+}
+
+const HUB_CAPABILITY_MATRIX = {
+  'front-office': {
+    transaction: {
+      read: ['view'],
+      write: ['create', 'park', 'resume', 'submit', 'view'],
+      admin: ['create', 'park', 'resume', 'submit', 'view']
+    },
+    status: {
+      read: ['view'],
+      write: ['view'],
+      admin: ['view']
+    },
+    home: {
+      read: ['view'],
+      write: ['view'],
+      admin: ['view']
+    },
+    support: {
+      read: ['view'],
+      write: ['view'],
+      admin: ['view']
+    },
+    permissions: {
+      read: [],
+      write: [],
+      admin: []
+    }
+  },
+  'back-office': {
+    transaction: {
+      read: ['view'],
+      write: ['view', 'assist'],
+      admin: ['view', 'assist', 'amend', 'resubmit']
+    },
+    status: {
+      read: ['view'],
+      write: ['view', 'assist'],
+      admin: ['view', 'assist']
+    },
+    home: {
+      read: ['view'],
+      write: ['view'],
+      admin: ['view']
+    },
+    support: {
+      read: ['view'],
+      write: ['view', 'assist'],
+      admin: ['view', 'assist']
+    },
+    permissions: {
+      read: ['view'],
+      write: ['view', 'manage-permissions'],
+      admin: ['view', 'manage-permissions']
+    }
+  }
+}
+
+const TRANSACTION_TAXONOMIES = new Set(['register', 'move', 'death'])
+const SUPPORT_TAXONOMIES = new Set(['status', 'home'])
+
+const HUB_CAPABILITIES_SET = new Set()
+
+for (const hubCapabilities of Object.values(HUB_CAPABILITY_MATRIX)) {
+  for (const moduleCapabilities of Object.values(hubCapabilities)) {
+    for (const capabilities of Object.values(moduleCapabilities)) {
+      for (const capability of capabilities) {
+        HUB_CAPABILITIES_SET.add(capability)
+      }
+    }
+  }
+}
+
+export const HUB_CAPABILITIES = [...HUB_CAPABILITIES_SET]
 
 export const HUB_ACCESS_STATUS = 'active'
 
@@ -27,57 +97,6 @@ const HUB_ACCESS_DEFAULT = {
   reason: HUB_ACCESS_REASONS.missingPermission,
   capabilities: []
 }
-
-const HUB_CAPABILITY_MATRIX = {
-  'front-office': {
-    transaction: ['create', 'park', 'resume', 'submit', 'view'],
-    status: ['view'],
-    home: ['view'],
-    support: ['view'],
-    permissions: [],
-    'reference-data': [],
-    audit: []
-  },
-  'back-office': {
-    transaction: ['view', 'assist'],
-    status: ['view'],
-    home: ['view'],
-    support: ['view', 'assist'],
-    permissions: ['manage-permissions'],
-    'reference-data': ['manage-reference-data'],
-    audit: ['view-audit']
-  }
-}
-
-const HUB_ELEVATED_CAPABILITIES = {
-  'front-office': {
-    transaction: [],
-    status: [],
-    home: [],
-    support: [],
-    permissions: [],
-    'reference-data': [],
-    audit: []
-  },
-  'back-office': {
-    transaction: ['amend', 'resubmit'],
-    status: ['assist'],
-    home: [],
-    support: ['amend', 'resubmit'],
-    permissions: [],
-    'reference-data': [],
-    audit: []
-  }
-}
-
-const MODULE_SYSTEM_PERMISSION_MAP = {
-  permissions: 'system.user',
-  'reference-data': 'system.reference',
-  audit: 'system.audit'
-}
-
-const TRANSACTION_TAXONOMIES = new Set(['register', 'move', 'death'])
-const SUPPORT_TAXONOMIES = new Set(['status', 'home'])
 
 export function getAccessibleModulesForHub({
   hubId,
@@ -112,12 +131,7 @@ export function resolveAccessibleModulesForHub({
     .filter(({ access }) => access.visible && access.allowed)
 }
 
-export function isModuleAccessibleForHub({
-  hubId,
-  user,
-  module,
-  taxonomy
-}) {
+export function isModuleAccessibleForHub({ hubId, user, module, taxonomy }) {
   return resolveModuleAccess({
     hubId,
     user,
@@ -126,12 +140,7 @@ export function isModuleAccessibleForHub({
   }).allowed
 }
 
-export function getModuleCapabilitiesForHub({
-  hubId,
-  user,
-  module,
-  taxonomy
-}) {
+export function getModuleCapabilitiesForHub({ hubId, user, module, taxonomy }) {
   return resolveModuleAccess({
     hubId,
     user,
@@ -140,12 +149,7 @@ export function getModuleCapabilitiesForHub({
   }).capabilities
 }
 
-export function resolveModuleAccess({
-  hubId,
-  user,
-  module,
-  taxonomy
-}) {
+export function resolveModuleAccess({ hubId, user, module, taxonomy }) {
   if (!hubId || !module) {
     return {
       ...HUB_ACCESS_DEFAULT,
@@ -169,95 +173,98 @@ export function resolveModuleAccess({
 
   const moduleType = getModuleType(module)
   const permissionContext = getPermissionContext(user)
-  const hasAccess = hasModuleAccess({
+  const accessLevel = getModuleAccessLevel({
     hubId,
     module,
     moduleType,
     permissionContext
   })
 
-  if (!hasAccess) {
+  if (accessLevel === ACCESS_LEVEL_RANKS.none) {
     return {
       ...HUB_ACCESS_DEFAULT,
       reason: HUB_ACCESS_REASONS.missingPermission
     }
   }
 
-  const capabilities = getCapabilitiesForModule({
-    hubId,
-    module,
-    moduleType,
-    permissionContext
-  })
-
   return {
     visible: true,
     allowed: true,
     reason: null,
-    capabilities
+    capabilities: getCapabilitiesForModule({
+      hubId,
+      moduleType,
+      accessLevel
+    })
   }
 }
 
-function hasModuleAccess({
+function getModuleAccessLevel({
   hubId,
   module,
   moduleType,
   permissionContext
 }) {
-  if (moduleType === 'permissions' || moduleType === 'reference-data' || moduleType === 'audit') {
-    return permissionContext.systemPermissions.has(
-      MODULE_SYSTEM_PERMISSION_MAP[moduleType]
-    )
+  if (!permissionContext.portalPermissions.has(hubId)) {
+    return ACCESS_LEVEL_RANKS.none
   }
 
-  if (moduleType === 'transaction') {
-    const exactPermission = buildModulePermission(module)
-
-    if (hubId === 'front-office') {
-      return permissionContext.exactPermissions.has(exactPermission)
-    }
-
-    return (
-      permissionContext.exactPermissions.has(exactPermission) ||
-      permissionContext.managePermissions.has(module.species)
-    )
+  if (moduleType === 'permissions') {
+    return permissionContext.userPermissionLevel
   }
 
-  if (moduleType === 'status' || moduleType === 'home' || moduleType === 'support') {
-    return hasSpeciesScopedAccess(permissionContext, module.species)
+  const speciesId = getModuleSpeciesId(module)
+
+  if (!speciesId) {
+    return ACCESS_LEVEL_RANKS.none
   }
 
-  return hasSpeciesScopedAccess(permissionContext, module.species)
-}
-
-function getCapabilitiesForModule({
-  hubId,
-  module,
-  moduleType,
-  permissionContext
-}) {
-  const baseCapabilities = HUB_CAPABILITY_MATRIX[hubId]?.[moduleType] ?? []
-  const elevatedCapabilities = HUB_ELEVATED_CAPABILITIES[hubId]?.[moduleType] ?? []
-  const capabilities = new Set(baseCapabilities)
-
-  if (permissionContext.managePermissions.has(module.species)) {
-    for (const capability of elevatedCapabilities) {
-      capabilities.add(capability)
-    }
+  if (
+    moduleType === 'status' ||
+    moduleType === 'home' ||
+    moduleType === 'support'
+  ) {
+    return getSpeciesAccessLevel(permissionContext, speciesId)
   }
 
-  return [...capabilities]
-}
-
-function hasSpeciesScopedAccess(permissionContext, speciesCode) {
-  return (
-    permissionContext.speciesPermissions.has(speciesCode) ||
-    permissionContext.managePermissions.has(speciesCode)
+  return getScopedModuleAccessLevel(
+    permissionContext,
+    speciesId,
+    module.taxonomy
   )
 }
 
-function buildModulePermission(module) {
-  return `${module.species}.${module.taxonomy}`.toLowerCase()
+function getCapabilitiesForModule({ hubId, moduleType, accessLevel }) {
+  const accessLevelName = getAccessLevelName(accessLevel)
+
+  if (!accessLevelName) {
+    return []
+  }
+
+  return HUB_CAPABILITY_MATRIX[hubId]?.[moduleType]?.[accessLevelName] ?? []
+}
+
+function getSpeciesAccessLevel(permissionContext, speciesId) {
+  return Math.max(
+    permissionContext.speciesPermissionLevels.get(speciesId) ??
+      ACCESS_LEVEL_RANKS.none,
+    permissionContext.speciesAppPermissionLevels.get(speciesId) ??
+      ACCESS_LEVEL_RANKS.none
+  )
+}
+
+function getScopedModuleAccessLevel(permissionContext, speciesId, taxonomyId) {
+  return Math.max(
+    permissionContext.speciesPermissionLevels.get(speciesId) ??
+      ACCESS_LEVEL_RANKS.none,
+    permissionContext.appPermissionLevels.get(
+      buildAppPermissionKey(speciesId, taxonomyId)
+    ) ?? ACCESS_LEVEL_RANKS.none
+  )
+}
+
+function buildAppPermissionKey(speciesId, taxonomyId) {
+  return `${speciesId}:${taxonomyId}`
 }
 
 function getModuleType(module) {
@@ -286,50 +293,150 @@ function getModuleType(module) {
 
 function getPermissionContext(user = {}) {
   const permissions = Array.isArray(user?.permissions) ? user.permissions : []
-  const groups = Array.isArray(user?.groups) ? user.groups : []
-  const exactPermissions = new Set()
-  const systemPermissions = new Set()
-  const speciesPermissions = new Set()
-  const managePermissions = new Set()
+  const portalPermissions = new Set()
+  const speciesPermissionLevels = new Map()
+  const speciesAppPermissionLevels = new Map()
+  const appPermissionLevels = new Map()
+  let userPermissionLevel = ACCESS_LEVEL_RANKS.none
 
   for (const permission of permissions) {
-    if (typeof permission !== 'string' || permission.length === 0) {
+    const parsedPermission = parsePermission(permission)
+
+    if (!parsedPermission) {
       continue
     }
 
-    const normalizedPermission = permission.toLowerCase()
-    exactPermissions.add(normalizedPermission)
-
-    const [scope, action] = normalizedPermission.split('.')
-
-    if (!scope || !action) {
+    if (parsedPermission.type === 'portal') {
+      portalPermissions.add(parsedPermission.portalId)
       continue
     }
 
-    if (scope === 'system') {
-      systemPermissions.add(normalizedPermission)
+    if (parsedPermission.type === 'user') {
+      userPermissionLevel = Math.max(
+        userPermissionLevel,
+        parsedPermission.accessLevel
+      )
       continue
     }
 
-    speciesPermissions.add(scope)
-
-    if (action === 'manage') {
-      managePermissions.add(scope)
-    }
-  }
-
-  for (const group of groups) {
-    if (typeof group !== 'string' || group.length === 0) {
+    if (parsedPermission.type === 'species') {
+      updateLevelMap(
+        speciesPermissionLevels,
+        parsedPermission.speciesId,
+        parsedPermission.accessLevel
+      )
       continue
     }
 
-    speciesPermissions.add(group.toLowerCase())
+    if (parsedPermission.type === 'app') {
+      updateLevelMap(
+        appPermissionLevels,
+        buildAppPermissionKey(
+          parsedPermission.speciesId,
+          parsedPermission.appId
+        ),
+        parsedPermission.accessLevel
+      )
+      updateLevelMap(
+        speciesAppPermissionLevels,
+        parsedPermission.speciesId,
+        parsedPermission.accessLevel
+      )
+    }
   }
 
   return {
-    exactPermissions,
-    systemPermissions,
-    speciesPermissions,
-    managePermissions
+    portalPermissions,
+    speciesPermissionLevels,
+    speciesAppPermissionLevels,
+    appPermissionLevels,
+    userPermissionLevel
   }
+}
+
+function parsePermission(permission) {
+  if (typeof permission !== 'string' || permission.length === 0) {
+    return null
+  }
+
+  const normalizedPermission = permission.toLowerCase().trim()
+
+  if (!normalizedPermission.startsWith(PERMISSION_PREFIX)) {
+    return null
+  }
+
+  const body = normalizedPermission.slice(PERMISSION_PREFIX.length)
+
+  if (body === 'front-office' || body === 'back-office') {
+    return {
+      type: 'portal',
+      portalId: body
+    }
+  }
+
+  const parts = body.split('-').filter(Boolean)
+
+  if (parts.length < 2) {
+    return null
+  }
+
+  const accessLevel =
+    ACCESS_LEVEL_RANKS[parts.at(-1)] ?? ACCESS_LEVEL_RANKS.none
+
+  if (accessLevel === ACCESS_LEVEL_RANKS.none) {
+    return null
+  }
+
+  const scopeParts = parts.slice(0, -1)
+
+  if (scopeParts.length === 1 && scopeParts[0] === 'user') {
+    return {
+      type: 'user',
+      accessLevel
+    }
+  }
+
+  if (scopeParts.length === 1) {
+    return {
+      type: 'species',
+      speciesId: scopeParts[0],
+      accessLevel
+    }
+  }
+
+  return {
+    type: 'app',
+    speciesId: scopeParts[0],
+    appId: scopeParts.slice(1).join('-'),
+    accessLevel
+  }
+}
+
+function updateLevelMap(levelMap, key, accessLevel) {
+  levelMap.set(
+    key,
+    Math.max(levelMap.get(key) ?? ACCESS_LEVEL_RANKS.none, accessLevel)
+  )
+}
+
+function getModuleSpeciesId(module) {
+  const normalizedSpecies = module?.species?.toLowerCase()
+
+  if (!normalizedSpecies) {
+    return null
+  }
+
+  const matchingSpecies = SPECIES.find(
+    ({ code, id }) => code === normalizedSpecies || id === normalizedSpecies
+  )
+
+  return matchingSpecies?.id ?? normalizedSpecies
+}
+
+function getAccessLevelName(accessLevel) {
+  return (
+    Object.entries(ACCESS_LEVEL_RANKS).find(
+      ([name, rank]) => name !== 'none' && rank === accessLevel
+    )?.[0] ?? null
+  )
 }
