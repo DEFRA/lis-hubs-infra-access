@@ -5,12 +5,15 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
-    "test": "vitest run --coverage.enabled false"
+    "test": "vitest run --coverage.enabled false",
+    "lint": "eslint ."
   },
   "engines": {
     "node": ">=24"
   },
   "devDependencies": {
+    "@defra/lis-infra-eslint-config": "0.0.1",
+    "eslint": "^9.0.0",
     "vitest": "4.1.4"
   },
   "dependencies": {

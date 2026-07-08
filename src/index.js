@@ -1,6 +1,7 @@
 import { SPECIES } from '@livestock/hub-registry'
 
 const PERMISSION_PREFIX = 'lis-perm-'
+const MIN_PERMISSION_PARTS = 2
 const ACCESS_LEVEL_RANKS = {
   none: 0,
   read: 1,
@@ -68,17 +69,13 @@ const HUB_CAPABILITY_MATRIX = {
 const TRANSACTION_TAXONOMIES = new Set(['register', 'move', 'death'])
 const SUPPORT_TAXONOMIES = new Set(['status', 'home'])
 
-const HUB_CAPABILITIES_SET = new Set()
-
-for (const hubCapabilities of Object.values(HUB_CAPABILITY_MATRIX)) {
-  for (const moduleCapabilities of Object.values(hubCapabilities)) {
-    for (const capabilities of Object.values(moduleCapabilities)) {
-      for (const capability of capabilities) {
-        HUB_CAPABILITIES_SET.add(capability)
-      }
-    }
-  }
-}
+const HUB_CAPABILITIES_SET = new Set(
+  Object.values(HUB_CAPABILITY_MATRIX).flatMap((hubCapabilities) =>
+    Object.values(hubCapabilities).flatMap((moduleCapabilities) =>
+      Object.values(moduleCapabilities).flat()
+    )
+  )
+)
 
 export const HUB_CAPABILITIES = [...HUB_CAPABILITIES_SET]
 
@@ -98,6 +95,10 @@ const HUB_ACCESS_DEFAULT = {
   capabilities: []
 }
 
+/**
+ * @param {{ hubId: string, user: object, modules?: object[], taxonomy?: string }} options
+ * @returns {object[]}
+ */
 export function getAccessibleModulesForHub({
   hubId,
   user,
@@ -112,6 +113,10 @@ export function getAccessibleModulesForHub({
   }).map(({ module }) => module)
 }
 
+/**
+ * @param {{ hubId: string, user: object, modules?: object[], taxonomy?: string }} options
+ * @returns {{ module: object, access: object }[]}
+ */
 export function resolveAccessibleModulesForHub({
   hubId,
   user,
@@ -131,6 +136,10 @@ export function resolveAccessibleModulesForHub({
     .filter(({ access }) => access.visible && access.allowed)
 }
 
+/**
+ * @param {{ hubId: string, user: object, module: object, taxonomy?: string }} options
+ * @returns {boolean}
+ */
 export function isModuleAccessibleForHub({ hubId, user, module, taxonomy }) {
   return resolveModuleAccess({
     hubId,
@@ -140,6 +149,10 @@ export function isModuleAccessibleForHub({ hubId, user, module, taxonomy }) {
   }).allowed
 }
 
+/**
+ * @param {{ hubId: string, user: object, module: object, taxonomy?: string }} options
+ * @returns {string[]}
+ */
 export function getModuleCapabilitiesForHub({ hubId, user, module, taxonomy }) {
   return resolveModuleAccess({
     hubId,
@@ -149,6 +162,10 @@ export function getModuleCapabilitiesForHub({ hubId, user, module, taxonomy }) {
   }).capabilities
 }
 
+/**
+ * @param {{ hubId: string, user: object, module: object, taxonomy?: string }} options
+ * @returns {{ visible: boolean, allowed: boolean, reason: string | null, capabilities: string[] }}
+ */
 export function resolveModuleAccess({ hubId, user, module, taxonomy }) {
   if (!hubId || !module) {
     return {
@@ -354,6 +371,23 @@ function getPermissionContext(user = {}) {
   }
 }
 
+function resolvePermissionScope(scopeParts, accessLevel) {
+  if (scopeParts.length === 1 && scopeParts[0] === 'user') {
+    return { type: 'user', accessLevel }
+  }
+
+  if (scopeParts.length === 1) {
+    return { type: 'species', speciesId: scopeParts[0], accessLevel }
+  }
+
+  return {
+    type: 'app',
+    speciesId: scopeParts[0],
+    appId: scopeParts.slice(1).join('-'),
+    accessLevel
+  }
+}
+
 function parsePermission(permission) {
   if (typeof permission !== 'string' || permission.length === 0) {
     return null
@@ -376,7 +410,7 @@ function parsePermission(permission) {
 
   const parts = body.split('-').filter(Boolean)
 
-  if (parts.length < 2) {
+  if (parts.length < MIN_PERMISSION_PARTS) {
     return null
   }
 
@@ -387,29 +421,7 @@ function parsePermission(permission) {
     return null
   }
 
-  const scopeParts = parts.slice(0, -1)
-
-  if (scopeParts.length === 1 && scopeParts[0] === 'user') {
-    return {
-      type: 'user',
-      accessLevel
-    }
-  }
-
-  if (scopeParts.length === 1) {
-    return {
-      type: 'species',
-      speciesId: scopeParts[0],
-      accessLevel
-    }
-  }
-
-  return {
-    type: 'app',
-    speciesId: scopeParts[0],
-    appId: scopeParts.slice(1).join('-'),
-    accessLevel
-  }
+  return resolvePermissionScope(parts.slice(0, -1), accessLevel)
 }
 
 function updateLevelMap(levelMap, key, accessLevel) {
