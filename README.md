@@ -9,7 +9,7 @@ Responsibilities:
 - map raw permissions into runtime capabilities
 - enforce least-privilege filtering for hub discovery and navigation
 
-This package should depend on hub facts from `@livestock/hub-registry`, not on deployable hub policy.
+This package should depend on hub facts from `@livestock/hubs-infra-registry`, not on deployable hub policy.
 
 Current implementation notes:
 
