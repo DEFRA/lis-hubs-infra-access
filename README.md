@@ -1,13 +1,27 @@
 # Hub Access
 
-Shared package for hub access and capability resolution.
+The single shared security package for hubs and livestock modules.
 
 Responsibilities:
 
+- OIDC authentication and provider-neutral callback handling
+- authentication flow and user session storage
+- hub and hub-to-module token handling
+- secure cookie and return URL handling
+- profile lookup and normalized identity data
 - resolve which modules a user may access in a hub
 - resolve capabilities for an allowed module
 - map raw permissions into runtime capabilities
 - enforce least-privilege filtering for hub discovery and navigation
+
+Provider-specific configuration and claim mapping remain in each deployable
+hub. Front office uses Defra CI and back office uses Microsoft Entra ID. Both
+hubs expose `/sso` as their OIDC callback.
+
+For direct public microsite access, the guard canonicalizes both proxied and
+direct-port requests to the microsite's configured `basePath` and sends that
+relative path to the front-office login route. Relative return URLs prevent an
+untrusted host header from becoming an authentication redirect target.
 
 This package should depend on hub facts from `@livestock/hubs-infra-registry`, not on deployable hub policy.
 

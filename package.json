@@ -1,22 +1,22 @@
 {
-  "name": "@livestock/hub-access",
+  "name": "@livestock/hubs-infra-access",
   "version": "0.1.0",
   "description": "Shared hub access and capability resolution for the livestock platform.",
   "type": "module",
   "main": "src/index.js",
+  "exports": {
+    ".": "./src/module-access.js",
+    "./auth": "./src/auth.js"
+  },
   "scripts": {
-    "test": "vitest run --coverage.enabled false",
-    "lint": "eslint ."
+    "test": "node --test src/*.test.js src/auth/*.test.js"
   },
   "engines": {
     "node": ">=24"
   },
-  "devDependencies": {
-    "@defra/lis-infra-eslint-config": "0.0.1",
-    "eslint": "^9.0.0",
-    "vitest": "4.1.4"
-  },
+  "devDependencies": {},
   "dependencies": {
-    "@livestock/hub-registry": "file:../infra-registry"
+    "@livestock/hubs-infra-registry": "file:../infra-registry",
+    "jose": "6.2.3"
   }
 }
