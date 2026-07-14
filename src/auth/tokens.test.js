@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
   buildCurrentRequestUrl,
+  buildMicrositeReturnUrl,
   createSpokeGuard,
   createSpokeAuthToken,
   getCurrentSpokeAccessMode,
@@ -47,6 +48,36 @@ test('buildCurrentRequestUrl reapplies the forwarded prefix for mounted spokes',
     url.toString(),
     'http://localhost:3000/chicken/move/about?step=1'
   )
+})
+
+test('buildMicrositeReturnUrl preserves a proxied deep link as a relative hub path', () => {
+  const returnUrl = buildMicrositeReturnUrl(
+    {
+      headers: {
+        host: 'front-office.lis.defra',
+        'x-forwarded-proto': 'https',
+        'x-forwarded-prefix': '/cattle/register'
+      },
+      raw: { req: { url: '/check?reference=123' } },
+      path: '/check'
+    },
+    { port: 3201, basePath: '/cattle/register' }
+  )
+
+  assert.equal(returnUrl, '/cattle/register/check?reference=123')
+})
+
+test('buildMicrositeReturnUrl canonicalizes direct-port access to its public mount path', () => {
+  const returnUrl = buildMicrositeReturnUrl(
+    {
+      headers: { host: 'localhost:3201' },
+      raw: { req: { url: '/' } },
+      path: '/'
+    },
+    { port: 3201, basePath: '/cattle/register' }
+  )
+
+  assert.equal(returnUrl, '/cattle/register')
 })
 
 test('createSpokeAuthToken returns a bearer token value', async () => {

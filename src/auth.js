@@ -17,6 +17,7 @@ export {
 
 export {
   buildCurrentRequestUrl,
+  buildMicrositeReturnUrl,
   buildHubLoginUrl,
   createAuthGuard,
   createHubServiceGuard,
@@ -38,5 +39,6 @@ export {
 } from './auth/tokens.js'
 
 export { createProfileService } from './profile-service.js'
+export { createHoldingService } from './holding-service.js'
 
 export { createModuleAccessGuard } from './module-access.js'

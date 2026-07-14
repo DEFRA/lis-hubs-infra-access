@@ -18,6 +18,11 @@ Provider-specific configuration and claim mapping remain in each deployable
 hub. Front office uses Defra CI and back office uses Microsoft Entra ID. Both
 hubs expose `/sso` as their OIDC callback.
 
+For direct public microsite access, the guard canonicalizes both proxied and
+direct-port requests to the microsite's configured `basePath` and sends that
+relative path to the front-office login route. Relative return URLs prevent an
+untrusted host header from becoming an authentication redirect target.
+
 This package should depend on hub facts from `@livestock/hubs-infra-registry`, not on deployable hub policy.
 
 Current implementation notes:

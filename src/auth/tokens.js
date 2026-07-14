@@ -131,6 +131,23 @@ export function buildCurrentRequestUrl(request, port) {
   return currentUrl
 }
 
+export function buildMicrositeReturnUrl(request, { port, basePath = '' }) {
+  const currentUrl = buildCurrentRequestUrl(request, port)
+  const forwardedPrefix = normalizeForwardedPrefix(
+    request.headers['x-forwarded-prefix']
+  )
+  const normalizedBasePath = normalizeForwardedPrefix(basePath)
+
+  if (normalizedBasePath && !forwardedPrefix) {
+    currentUrl.pathname =
+      currentUrl.pathname === '/'
+        ? normalizedBasePath
+        : `${normalizedBasePath}${currentUrl.pathname}`
+  }
+
+  return `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`
+}
+
 /**
  * @param {{ hubOrigin: string, returnUrl: string }} options
  * @returns {string}
@@ -406,6 +423,7 @@ export function createAuthGuard({
   cookieOptions,
   assetPath,
   port,
+  basePath,
   secret,
   issuer,
   audience
@@ -427,7 +445,7 @@ export function createAuthGuard({
       if (!hubJwtPayload) {
         const loginUrl = buildHubLoginUrl({
           hubOrigin,
-          returnUrl: buildCurrentRequestUrl(request, port).toString()
+          returnUrl: buildMicrositeReturnUrl(request, { port, basePath })
         })
 
         return h.redirect(loginUrl).takeover()
@@ -503,6 +521,7 @@ export function createSpokeGuard({
   cookieOptions,
   assetPath,
   port,
+  basePath,
   secret,
   issuer,
   audience
@@ -536,6 +555,7 @@ export function createSpokeGuard({
     cookieOptions,
     assetPath,
     port,
+    basePath,
     secret,
     issuer,
     audience
