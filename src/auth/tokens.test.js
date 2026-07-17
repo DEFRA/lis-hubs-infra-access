@@ -260,6 +260,70 @@ test('createSpokeGuard hydrates hub auth permissions from hub-service JWTs', asy
   })
 })
 
+test('createSpokeGuard supports hub-service authentication on marked user-session routes', async () => {
+  const guard = createSpokeGuard({
+    spokeId: 'cattle-home',
+    hubOrigin: 'http://localhost:3000',
+    cookieName: 'livestock_hub_jwt',
+    cookieOptions: getHubJwtCookieOptions({
+      ttlSeconds: jwtConfig.ttlSeconds,
+      isSecure: false
+    }),
+    assetPath: '/public',
+    port: 3221,
+    basePath: '/cattle/home',
+    secret: jwtConfig.secret,
+    issuer: jwtConfig.issuer,
+    audience: jwtConfig.audience,
+    allowHubServiceRoutes: true
+  })
+  const bearerToken = await createSpokeAuthToken(
+    {
+      taxonomyId: 'home',
+      spokeId: 'cattle-home',
+      user: {
+        sub: 'test-user',
+        email: 'test.user@example.com',
+        permissions: ['lis-perm-front-office', 'lis-perm-cattle-read']
+      }
+    },
+    jwtConfig
+  )
+
+  let onPreAuthHandler
+  await guard.plugin.register({
+    state(cookieName) {
+      assert.equal(cookieName, 'livestock_hub_jwt')
+    },
+    ext(event, handler) {
+      assert.equal(event, 'onPreAuth')
+      onPreAuthHandler = handler
+    }
+  })
+
+  const request = {
+    path: '/summary',
+    route: { settings: { app: { authMode: 'hub-service' } } },
+    headers: { authorization: bearerToken },
+    app: {}
+  }
+  const h = {
+    continue: Symbol('continue'),
+    response() {
+      throw new Error('response should not be called')
+    }
+  }
+
+  const result = await onPreAuthHandler(request, h)
+
+  assert.equal(result, h.continue)
+  assert.equal(request.app.hubAuth.email, 'test.user@example.com')
+  assert.deepEqual(request.app.hubAuth.permissions, [
+    'lis-perm-front-office',
+    'lis-perm-cattle-read'
+  ])
+})
+
 test('resolveAccessMode returns the most restrictive mode', () => {
   assert.equal(
     resolveAccessMode({
