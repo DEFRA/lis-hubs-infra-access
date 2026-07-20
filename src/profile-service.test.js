@@ -3,7 +3,7 @@ import test from 'node:test'
 
 import { createProfileService } from './profile-service.js'
 
-test('createProfileService returns roles and permissions without synthesizing legacy groups', async () => {
+test('createProfileService returns source roles without trusting source permissions', async () => {
   const fetchUserProfile = createProfileService({
     config: {
       get(path) {
@@ -38,8 +38,32 @@ test('createProfileService returns roles and permissions without synthesizing le
 
   assert.deepEqual(profile, {
     roles: ['lis-role-cattle-editor'],
-    permissions: ['lis-perm-front-office', 'lis-perm-cattle-write'],
+    roleAssignments: [],
     holdings: ['holding-1']
   })
   assert.equal('groups' in profile, false)
+})
+
+test('createProfileService safely handles a missing profile', async () => {
+  const fetchUserProfile = createProfileService({
+    config: {
+      get(path) {
+        return path === 'profileService.url'
+          ? 'http://localhost:4000/api/profile'
+          : ''
+      }
+    },
+    fetchImpl: async () => ({
+      ok: true,
+      async json() {
+        return null
+      }
+    })
+  })
+
+  assert.deepEqual(await fetchUserProfile({ sub: 'missing-user' }), {
+    roles: [],
+    roleAssignments: [],
+    holdings: []
+  })
 })

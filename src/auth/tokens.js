@@ -4,6 +4,10 @@ import { TextEncoder } from 'node:util'
 import { SignJWT, jwtVerify } from 'jose'
 
 import { MODULES, TAXONOMIES } from '@livestock/hubs-infra-registry'
+import {
+  AUTHORIZATION_VERSION,
+  hydrateAuthorization
+} from '../authorization.js'
 
 const statusCodes = {
   unauthorized: 401
@@ -187,7 +191,10 @@ export async function issueHubJwt(
     firstName: user.firstName ?? '',
     lastName: user.lastName ?? '',
     roles: Array.isArray(user.roles) ? user.roles : [],
-    permissions: Array.isArray(user.permissions) ? user.permissions : [],
+    roleAssignments: Array.isArray(user.roleAssignments)
+      ? user.roleAssignments
+      : [],
+    authzVersion: AUTHORIZATION_VERSION,
     serviceId: user.serviceId ?? '',
     loa: user.loa ?? '',
     amr: Array.isArray(user.amr) ? user.amr : []
@@ -218,7 +225,10 @@ export async function createSpokeAuthToken(
     actorFirstName: user?.firstName ?? '',
     actorLastName: user?.lastName ?? '',
     actorRoles: Array.isArray(user?.roles) ? user.roles : [],
-    actorPermissions: Array.isArray(user?.permissions) ? user.permissions : []
+    actorRoleAssignments: Array.isArray(user?.roleAssignments)
+      ? user.roleAssignments
+      : [],
+    authzVersion: AUTHORIZATION_VERSION
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(HUB_SERVICE_SUBJECT)
@@ -241,6 +251,10 @@ export async function verifyHubJwt(token, { secret, issuer, audience }) {
     issuer,
     audience
   })
+
+  if (payload.authzVersion !== AUTHORIZATION_VERSION) {
+    throw new Error('Unsupported authorization model version')
+  }
 
   return payload
 }
@@ -451,7 +465,7 @@ export function createAuthGuard({
         return h.redirect(loginUrl).takeover()
       }
 
-      request.app.hubAuth = hubJwtPayload
+      request.app.hubAuth = hydrateAuthorization(hubJwtPayload)
       return h.continue
     }
   })
@@ -500,7 +514,7 @@ export function createHubServiceGuard({
 
 function hydrateHubServiceActor(request, hubServiceJwtPayload) {
   request.app.hubServiceAuth = hubServiceJwtPayload
-  request.app.hubAuth = {
+  request.app.hubAuth = hydrateAuthorization({
     sub: hubServiceJwtPayload.actorSub,
     email: hubServiceJwtPayload.actorEmail,
     firstName: hubServiceJwtPayload.actorFirstName,
@@ -508,10 +522,10 @@ function hydrateHubServiceActor(request, hubServiceJwtPayload) {
     roles: Array.isArray(hubServiceJwtPayload.actorRoles)
       ? hubServiceJwtPayload.actorRoles
       : [],
-    permissions: Array.isArray(hubServiceJwtPayload.actorPermissions)
-      ? hubServiceJwtPayload.actorPermissions
+    roleAssignments: Array.isArray(hubServiceJwtPayload.actorRoleAssignments)
+      ? hubServiceJwtPayload.actorRoleAssignments
       : []
-  }
+  })
 }
 
 function createRouteAwareAuthGuard({
@@ -567,7 +581,7 @@ function createRouteAwareAuthGuard({
         return h.redirect(loginUrl).takeover()
       }
 
-      request.app.hubAuth = hubJwtPayload
+      request.app.hubAuth = hydrateAuthorization(hubJwtPayload)
       return h.continue
     }
   })

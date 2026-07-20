@@ -1,0 +1,34 @@
+{
+  "lis-role-reader": {
+    "permissions": []
+  },
+
+  "lis-role-caseworker": {
+    "permissions": ["lis-perm-cattle-read", "lis-perm-sheep-read"]
+  },
+  "lis-role-caseworker-super": {
+    "permissions": [
+      "lis-perm-cattle-read",
+      "lis-perm-cattle-register-write",
+      "lis-perm-cattle-move-write",
+      "lis-perm-cattle-death-write"
+    ]
+  },
+  "lis-role-passport-approver": {
+    "permissions": ["lis-perm-passport-approver"]
+  },
+
+  "lis-role-cattle-read": {
+    "permissions": ["lis-perm-cattle-read"]
+  },
+  "lis-role-cattle-write": {
+    "permissions": ["lis-perm-cattle-read", "lis-perm-cattle-write"]
+  },
+
+  "lis-role-front-office": {
+    "permissions": ["lis-perm-front-office"]
+  },
+  "lis-role-back-office": {
+    "permissions": ["lis-perm-back-office"]
+  }
+}

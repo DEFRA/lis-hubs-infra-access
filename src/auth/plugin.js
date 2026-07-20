@@ -9,6 +9,7 @@ import {
   issueHubJwt
 } from './tokens.js'
 import { getAuthorizedSpecies } from '../module-access.js'
+import { hydrateAuthorization } from '../authorization.js'
 
 function createLoginController({
   getCookieOptions,
@@ -62,7 +63,7 @@ function createCallbackController({
   getHubJwtConfig,
   getHubJwtCookieName,
   completeAuthorizationCodeGrant,
-  fetchUserProfile
+  resolveAuthSession
 }) {
   return {
     options: {
@@ -75,10 +76,14 @@ function createCallbackController({
 
       const { user, authSession, accessToken, returnUrl } =
         await completeAuthorizationCodeGrant(request)
-      const profile = await fetchUserProfile(user, accessToken)
+      const authorization = await resolveAuthSession({
+        user,
+        authSession,
+        accessToken
+      })
       const enrichedAuthSession = {
         ...authSession,
-        ...profile
+        ...authorization
       }
       const jwt = await issueHubJwt(enrichedAuthSession, getHubJwtConfig())
 
@@ -124,7 +129,7 @@ export function createHubAuthPlugin({
   getHubJwtCookieName,
   getCookieOptions,
   getHubJwtConfig,
-  fetchUserProfile,
+  resolveAuthSession,
   buildAuthorizationUrl,
   completeAuthorizationCodeGrant,
   buildLogoutUrl,
@@ -135,7 +140,7 @@ export function createHubAuthPlugin({
     getHubJwtConfig,
     getHubJwtCookieName,
     completeAuthorizationCodeGrant,
-    fetchUserProfile
+    resolveAuthSession
   })
   const logoutController = createLogoutController({
     getCookieOptions,
@@ -149,7 +154,10 @@ export function createHubAuthPlugin({
       register(server) {
         server.state(getHubJwtCookieName(), getCookieOptions())
         server.ext('onPreAuth', (request, h) => {
-          request.app.hubAuth = getHubAuthSession(request)
+          const authSession = getHubAuthSession(request)
+          request.app.hubAuth = authSession
+            ? hydrateAuthorization(authSession)
+            : null
           request.app.authorizedSpecies = getAuthorizedSpecies(
             request.app.hubAuth
           )
