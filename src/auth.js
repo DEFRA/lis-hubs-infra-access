@@ -1,9 +1,6 @@
 export { createOidcClient } from './auth/oidc.js'
 
-export {
-  createHubAuthPlugin,
-  createHubCookieOptions
-} from './auth/plugin.js'
+export { createHubAuthPlugin, createHubCookieOptions } from './auth/plugin.js'
 
 export {
   clearHubAuthFlow,
@@ -40,5 +37,14 @@ export {
 
 export { createProfileService } from './profile-service.js'
 export { createHoldingService } from './holding-service.js'
+export {
+  AUTHORIZATION_VERSION,
+  demandPermission,
+  demandRole,
+  hasPermission,
+  hasRole,
+  hydrateAuthorization,
+  resolveAuthorization
+} from './authorization.js'
 
 export { createModuleAccessGuard } from './module-access.js'

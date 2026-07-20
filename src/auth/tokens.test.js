@@ -125,10 +125,7 @@ test('createSpokeAuthToken signs a JWT with the expected hub service claims', as
   assert.equal(payload.spokeId, 'cattle-status')
   assert.equal(payload.actorEmail, 'test.user@example.com')
   assert.deepEqual(payload.actorRoles, ['lis-role-caseworker'])
-  assert.deepEqual(payload.actorPermissions, [
-    'lis-perm-front-office',
-    'lis-perm-cattle-read'
-  ])
+  assert.equal('actorPermissions' in payload, false)
 })
 
 test('getHubJwtPayloadFromRequest only accepts the hub session cookie', async () => {
@@ -184,13 +181,10 @@ test('getHubServiceJwtPayloadFromRequest accepts bearer tokens for fetch-based r
 
   assert.equal(payload.sub, 'hub-service')
   assert.equal(payload.actorEmail, 'test.user@example.com')
-  assert.deepEqual(payload.actorPermissions, [
-    'lis-perm-front-office',
-    'lis-perm-cattle-read'
-  ])
+  assert.equal('actorPermissions' in payload, false)
 })
 
-test('createSpokeGuard hydrates hub auth permissions from hub-service JWTs', async () => {
+test('createSpokeGuard rehydrates permissions from hub-service JWT roles', async () => {
   const guard = createSpokeGuard({
     spokeId: 'cattle-status',
     hubOrigin: 'http://localhost:3000',
@@ -255,8 +249,11 @@ test('createSpokeGuard hydrates hub auth permissions from hub-service JWTs', asy
     email: 'test.user@example.com',
     firstName: 'Test',
     lastName: 'User',
+    authzVersion: 1,
     roles: ['lis-role-caseworker'],
-    permissions: ['lis-perm-front-office', 'lis-perm-cattle-read']
+    permissions: ['lis-perm-cattle-read', 'lis-perm-sheep-read'],
+    roleAssignments: [],
+    permissionAssignments: []
   })
 })
 
@@ -284,7 +281,7 @@ test('createSpokeGuard supports hub-service authentication on marked user-sessio
       user: {
         sub: 'test-user',
         email: 'test.user@example.com',
-        permissions: ['lis-perm-front-office', 'lis-perm-cattle-read']
+        roles: ['lis-role-front-office', 'lis-role-cattle-read']
       }
     },
     jwtConfig

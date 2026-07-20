@@ -1,0 +1,24 @@
+{
+  "entra": {
+    "bcms_user": [
+      "lis-role-back-office",
+      "lis-role-caseworker",
+      "lis-role-cattle-write"
+    ],
+    "bcms_supervisor": [
+      "lis-role-back-office",
+      "lis-role-caseworker-super",
+      "lis-role-cattle-write"
+    ],
+    "bcms_admin": [
+      "lis-role-back-office",
+      "lis-role-caseworker-super",
+      "lis-role-passport-approver",
+      "lis-role-cattle-write"
+    ]
+  },
+  "profile": {
+    "livestockowner": ["lis-role-front-office", "lis-role-cattle-read"],
+    "cphholder": ["lis-role-front-office", "lis-role-cattle-read"]
+  }
+}

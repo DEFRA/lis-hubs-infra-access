@@ -63,13 +63,16 @@ export function createProfileService({ config, fetchImpl = globalThis.fetch }) {
 }
 
 function buildProfileResponse(profile = {}) {
+  profile ??= {}
   const roles = normalizeStringArray(profile.roles)
-  const permissions = normalizeStringArray(profile.permissions)
   const holdings = Array.isArray(profile.holdings) ? profile.holdings : []
+  const roleAssignments = Array.isArray(profile.roleAssignments)
+    ? profile.roleAssignments
+    : []
 
   return {
     roles,
-    permissions,
+    roleAssignments,
     holdings
   }
 }
