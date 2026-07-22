@@ -21,8 +21,73 @@
   "lis-role-cattle-read": {
     "permissions": ["lis-perm-cattle-read"]
   },
+
   "lis-role-cattle-write": {
     "permissions": ["lis-perm-cattle-read", "lis-perm-cattle-write"]
+  },
+
+  "lis-role-cattle-register-read":  {
+    "permissions": [
+      "lis-perm-cattle-register-read"
+    ]
+  },
+  "lis-role-cattle-register-write":  {
+    "permissions": [
+      "lis-perm-cattle-register-read",
+      "lis-perm-cattle-register-write"
+    ]
+  },
+  "lis-role-cattle-register-admin":  {
+    "permissions": [
+      "lis-perm-cattle-register-read",
+      "lis-perm-cattle-register-write",
+      "lis-perm-cattle-register-admin"
+    ]
+  },
+  "lis-role-cattle-home-read": {
+    "permissions": ["lis-perm-cattle-home-read"]
+  },
+
+  "lis-role-cattle-home-write": {
+    "permissions": [
+      "lis-perm-cattle-home-read",
+      "lis-perm-cattle-home-write"
+    ]
+  },
+  "lis-role-cattle-home-admin": {
+    "permissions": [
+      "lis-perm-cattle-home-read",
+      "lis-perm-cattle-home-write",
+      "lis-perm-cattle-home-admin"
+    ]
+  },
+  "lis-role-cattle-death-read": {
+    "permissions": ["lis-perm-cattle-death-read"]
+  },
+  "lis-role-cattle-death-write": {
+    "permissions": [
+      "lis-perm-cattle-death-read",
+      "lis-perm-cattle-death-write"]
+  },
+  "lis-role-cattle-death-admin": {
+    "permissions": [
+      "lis-perm-cattle-death-read",
+      "lis-perm-cattle-death-write",
+      "lis-perm-cattle-death-admin"]
+  },
+  "lis-role-cattle-move-read": {
+    "permissions": ["lis-perm-cattle-move-read"]
+  },
+  "lis-role-cattle-move-write": {
+    "permissions": [
+      "lis-perm-cattle-move-read",
+      "lis-perm-cattle-move-write"]
+  },
+  "lis-role-cattle-move-admin": {
+    "permissions": [
+      "lis-perm-cattle-move-read",
+      "lis-perm-cattle-move-write",
+      "lis-perm-cattle-move-admin"]
   },
 
   "lis-role-front-office": {

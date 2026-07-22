@@ -18,7 +18,21 @@
     ]
   },
   "profile": {
-    "livestockowner": ["lis-role-front-office", "lis-role-cattle-read"],
-    "cphholder": ["lis-role-front-office", "lis-role-cattle-read"]
+    "livestockowner": [
+      "lis-role-front-office",
+      "lis-role-cattle-read",
+      "lis-role-cattle-register-write",
+      "lis-role-cattle-home-write",
+      "lis-role-cattle-death-write",
+      "lis-role-cattle-move-write"
+    ],
+    "cphholder": [
+      "lis-role-front-office",
+      "lis-role-cattle-read",
+      "lis-role-cattle-register-write",
+      "lis-role-cattle-home-write",
+      "lis-role-cattle-death-write",
+      "lis-role-cattle-move-write"
+    ]
   }
 }
