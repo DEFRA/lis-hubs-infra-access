@@ -14,6 +14,10 @@ export function resolveAuthorization({
   const mappings = roleMappings[source] ?? {}
 
   for (const sourceRole of normalizeSourceRoles(sourceRoles)) {
+    if (roleDefinitions[sourceRole]) {
+      roles.add(sourceRole)
+    }
+
     for (const role of mappings[sourceRole.toLowerCase()] ?? []) {
       if (roleDefinitions[role]) {
         roles.add(role)

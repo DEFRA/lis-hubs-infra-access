@@ -194,6 +194,7 @@ export async function issueHubJwt(
     roleAssignments: Array.isArray(user.roleAssignments)
       ? user.roleAssignments
       : [],
+    holdings: Array.isArray(user.holdings) ? user.holdings : [],
     authzVersion: AUTHORIZATION_VERSION,
     serviceId: user.serviceId ?? '',
     loa: user.loa ?? '',
@@ -427,12 +428,26 @@ function createRequestGuard({ name, assetPath, registerState, authenticate }) {
   }
 }
 
+function resolveHubOrigin(request, defaultHubOrigin, hubOrigins = []) {
+  const requestHost =
+    request.headers?.['x-forwarded-host'] ?? request.headers?.host ?? ''
+  const requestHostname = requestHost.split(',')[0].trim()
+  const referer = request.headers?.referer
+
+  return (
+    hubOrigins.find((origin) => new URL(origin).host === requestHostname) ??
+    hubOrigins.find((origin) => referer?.startsWith(`${origin}/`)) ??
+    defaultHubOrigin
+  )
+}
+
 /**
  * @param {{ hubOrigin: string, cookieName: string, cookieOptions: object, assetPath: string, port: number, secret: string, issuer: string, audience: string }} options
  * @returns {object}
  */
 export function createAuthGuard({
   hubOrigin,
+  hubOrigins,
   cookieName,
   cookieOptions,
   assetPath,
@@ -458,7 +473,7 @@ export function createAuthGuard({
 
       if (!hubJwtPayload) {
         const loginUrl = buildHubLoginUrl({
-          hubOrigin,
+          hubOrigin: resolveHubOrigin(request, hubOrigin, hubOrigins),
           returnUrl: buildMicrositeReturnUrl(request, { port, basePath })
         })
 
@@ -530,6 +545,7 @@ function hydrateHubServiceActor(request, hubServiceJwtPayload) {
 
 function createRouteAwareAuthGuard({
   hubOrigin,
+  hubOrigins,
   cookieName,
   cookieOptions,
   assetPath,
@@ -574,7 +590,7 @@ function createRouteAwareAuthGuard({
 
       if (!hubJwtPayload) {
         const loginUrl = buildHubLoginUrl({
-          hubOrigin,
+          hubOrigin: resolveHubOrigin(request, hubOrigin, hubOrigins),
           returnUrl: buildMicrositeReturnUrl(request, { port, basePath })
         })
 
@@ -594,6 +610,7 @@ function createRouteAwareAuthGuard({
 export function createSpokeGuard({
   spokeId,
   hubOrigin,
+  hubOrigins,
   cookieName,
   cookieOptions,
   assetPath,
@@ -630,6 +647,7 @@ export function createSpokeGuard({
   if (allowHubServiceRoutes) {
     return createRouteAwareAuthGuard({
       hubOrigin,
+      hubOrigins,
       cookieName,
       cookieOptions,
       assetPath,
@@ -645,6 +663,7 @@ export function createSpokeGuard({
 
   return createAuthGuard({
     hubOrigin,
+    hubOrigins,
     cookieName,
     cookieOptions,
     assetPath,

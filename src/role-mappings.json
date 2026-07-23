@@ -3,18 +3,21 @@
     "bcms_user": [
       "lis-role-back-office",
       "lis-role-caseworker",
-      "lis-role-cattle-write"
+      "lis-role-cattle-write",
+      "lis-role-cattle-register-write"
     ],
     "bcms_supervisor": [
       "lis-role-back-office",
       "lis-role-caseworker-super",
-      "lis-role-cattle-write"
+      "lis-role-cattle-write",
+      "lis-role-cattle-register-write"
     ],
     "bcms_admin": [
       "lis-role-back-office",
       "lis-role-caseworker-super",
       "lis-role-passport-approver",
-      "lis-role-cattle-write"
+      "lis-role-cattle-write",
+      "lis-role-cattle-register-write"
     ]
   },
   "profile": {

@@ -54,6 +54,24 @@ test('hasModuleAccess allows higher levels within the same scope', () => {
   )
 })
 
+test('hasModuleAccess allows the back-office role across all modules', () => {
+  assert.equal(
+    hasModuleAccess(
+      {
+        roles: ['lis-role-back-office'],
+        permissions: ['lis-perm-back-office']
+      },
+      {
+        species: 'cattle',
+        scope: 'app',
+        app: 'register',
+        minLevel: 'read'
+      }
+    ),
+    true
+  )
+})
+
 test('getAccessibleModulesForHub filters by portal and module permissions', () => {
   const modules = getAccessibleModulesForHub({
     hubId: 'front-office',

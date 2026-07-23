@@ -4,14 +4,16 @@
   },
 
   "lis-role-caseworker": {
-    "permissions": ["lis-perm-cattle-read", "lis-perm-sheep-read"]
+    "permissions": ["lis-perm-cattle-read",
+      "lis-perm-cattle-register-write",
+      "lis-perm-sheep-read"]
   },
   "lis-role-caseworker-super": {
     "permissions": [
       "lis-perm-cattle-read",
-      "lis-perm-cattle-register-write",
-      "lis-perm-cattle-move-write",
-      "lis-perm-cattle-death-write"
+      "lis-perm-cattle-register-admin",
+      "lis-perm-cattle-move-admin",
+      "lis-perm-cattle-death-admin"
     ]
   },
   "lis-role-passport-approver": {

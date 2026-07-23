@@ -22,6 +22,23 @@ test('unknown source roles receive only the default reader role', () => {
   )
 })
 
+test('preserves LIS roles already translated by the identity provider', () => {
+  assert.deepEqual(
+    resolveAuthorization({
+      source: 'entra',
+      sourceRoles: ['lis-role-back-office']
+    }),
+    {
+      authzVersion: 1,
+      roles: ['lis-role-reader', 'lis-role-back-office'],
+      permissions: ['lis-perm-back-office'],
+      roleAssignments: [],
+      permissionAssignments: [],
+      holdings: []
+    }
+  )
+})
+
 test('permissions are rehydrated locally from LIS roles', () => {
   const authorization = hydrateAuthorization({
     roles: ['lis-role-caseworker']

@@ -103,6 +103,13 @@ export function hasModuleAccess(user, moduleAccess) {
     return false
   }
 
+  if (
+    user?.roles?.includes('lis-role-back-office') ||
+    user?.permissions?.includes('lis-perm-back-office')
+  ) {
+    return true
+  }
+
   const permissions = Array.isArray(user?.permissions) ? user.permissions : []
   const requiredRank = ACCESS_LEVEL_RANKS[moduleAccess.minLevel] ?? 0
 
