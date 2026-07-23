@@ -10,6 +10,7 @@ import {
   getHubJwtPayloadFromRequest,
   getHubJwtCookieOptions,
   getHubServiceJwtPayloadFromRequest,
+  issueHubJwt,
   resolveAccessMode,
   verifyHubJwt
 } from './tokens.js'
@@ -26,6 +27,27 @@ const jwtConfig = {
   audience: 'livestock-spokes',
   ttlSeconds: 3600
 }
+
+test('issueHubJwt carries holdings into the spoke session', async () => {
+  const holdings = [
+    {
+      group_name: 'My farm',
+      cphs: [{ cph: '10/081/1234' }]
+    }
+  ]
+  const token = await issueHubJwt(
+    {
+      sub: 'holding-user',
+      roles: ['lis-role-front-office'],
+      holdings
+    },
+    jwtConfig
+  )
+
+  const payload = await verifyHubJwt(token, jwtConfig)
+
+  assert.deepEqual(payload.holdings, holdings)
+})
 
 test('buildCurrentRequestUrl reapplies the forwarded prefix for mounted spokes', () => {
   const url = buildCurrentRequestUrl(
