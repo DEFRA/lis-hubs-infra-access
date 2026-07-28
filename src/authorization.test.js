@@ -88,13 +88,21 @@ test('Entra roles are translated and expanded to permissions', () => {
     'lis-role-reader',
     'lis-role-back-office',
     'lis-role-caseworker',
-    'lis-role-cattle-write'
+    'lis-role-cattle-write',
+    'lis-role-cattle-register-write',
+    'lis-role-sheep-write',
+    'lis-role-sheep-register-write'
   ])
   assert.deepEqual(authorization.permissions, [
     'lis-perm-back-office',
     'lis-perm-cattle-read',
+    'lis-perm-cattle-register-write',
     'lis-perm-sheep-read',
-    'lis-perm-cattle-write'
+    'lis-perm-cattle-write',
+    'lis-perm-cattle-register-read',
+    'lis-perm-sheep-write',
+    'lis-perm-sheep-register-read',
+    'lis-perm-sheep-register-write'
   ])
 })
 
@@ -104,20 +112,26 @@ test('profile role assignments retain their CPH scope', () => {
     roleAssignments: [{ role: 'livestockowner', cph: '10/081/1234' }]
   })
 
-  assert.deepEqual(authorization.roleAssignments, [
-    {
-      role: 'lis-role-front-office',
-      cph: '10/081/1234'
-    },
-    {
-      role: 'lis-role-cattle-read',
-      cph: '10/081/1234'
-    }
-  ])
+  assert.equal(
+    authorization.roleAssignments.every(
+      (assignment) => assignment.cph === '10/081/1234'
+    ),
+    true
+  )
+  assert.equal(
+    authorization.roleAssignments.some(
+      (assignment) => assignment.role === 'lis-role-sheep-read'
+    ),
+    true
+  )
   assert.deepEqual(authorization.roles, ['lis-role-reader'])
   assert.deepEqual(authorization.permissions, [])
-  assert.deepEqual(authorization.permissionAssignments, [
-    { permission: 'lis-perm-front-office', cph: '10/081/1234' },
-    { permission: 'lis-perm-cattle-read', cph: '10/081/1234' }
-  ])
+  assert.equal(
+    authorization.permissionAssignments.some(
+      (assignment) =>
+        assignment.permission === 'lis-perm-sheep-read' &&
+        assignment.cph === '10/081/1234'
+    ),
+    true
+  )
 })

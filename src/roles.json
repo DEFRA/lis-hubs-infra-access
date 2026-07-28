@@ -20,6 +20,78 @@
     "permissions": ["lis-perm-passport-approver"]
   },
 
+  "lis-role-sheep-read": {
+    "permissions": ["lis-perm-sheep-read"]
+  },
+
+  "lis-role-sheep-write": {
+    "permissions": ["lis-perm-sheep-read", "lis-perm-sheep-write"]
+  },
+
+  "lis-role-sheep-register-read":  {
+    "permissions": [
+      "lis-perm-sheep-register-read"
+    ]
+  },
+  "lis-role-sheep-register-write":  {
+    "permissions": [
+      "lis-perm-sheep-register-read",
+      "lis-perm-sheep-register-write"
+    ]
+  },
+  "lis-role-sheep-register-admin":  {
+    "permissions": [
+      "lis-perm-sheep-register-read",
+      "lis-perm-sheep-register-write",
+      "lis-perm-sheep-register-admin"
+    ]
+  },
+  "lis-role-sheep-home-read": {
+    "permissions": ["lis-perm-sheep-home-read"]
+  },
+
+  "lis-role-sheep-home-write": {
+    "permissions": [
+      "lis-perm-sheep-home-read",
+      "lis-perm-sheep-home-write"
+    ]
+  },
+  "lis-role-sheep-home-admin": {
+    "permissions": [
+      "lis-perm-sheep-home-read",
+      "lis-perm-sheep-home-write",
+      "lis-perm-sheep-home-admin"
+    ]
+  },
+  "lis-role-sheep-death-read": {
+    "permissions": ["lis-perm-sheep-death-read"]
+  },
+  "lis-role-sheep-death-write": {
+    "permissions": [
+      "lis-perm-sheep-death-read",
+      "lis-perm-sheep-death-write"]
+  },
+  "lis-role-sheep-death-admin": {
+    "permissions": [
+      "lis-perm-sheep-death-read",
+      "lis-perm-sheep-death-write",
+      "lis-perm-sheep-death-admin"]
+  },
+  "lis-role-sheep-move-read": {
+    "permissions": ["lis-perm-sheep-move-read"]
+  },
+  "lis-role-sheep-move-write": {
+    "permissions": [
+      "lis-perm-sheep-move-read",
+      "lis-perm-sheep-move-write"]
+  },
+  "lis-role-sheep-move-admin": {
+    "permissions": [
+      "lis-perm-sheep-move-read",
+      "lis-perm-sheep-move-write",
+      "lis-perm-sheep-move-admin"]
+  },
+
   "lis-role-cattle-read": {
     "permissions": ["lis-perm-cattle-read"]
   },
