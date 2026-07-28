@@ -273,7 +273,11 @@ test('createSpokeGuard rehydrates permissions from hub-service JWT roles', async
     lastName: 'User',
     authzVersion: 1,
     roles: ['lis-role-caseworker'],
-    permissions: ['lis-perm-cattle-read', 'lis-perm-sheep-read'],
+    permissions: [
+      'lis-perm-cattle-read',
+      'lis-perm-cattle-register-write',
+      'lis-perm-sheep-read'
+    ],
     roleAssignments: [],
     permissionAssignments: []
   })
