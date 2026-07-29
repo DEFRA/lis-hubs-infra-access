@@ -16,7 +16,7 @@
   },
   "devDependencies": {},
   "dependencies": {
-    "@livestock/hubs-infra-registry": "file:../infra-registry",
+    "@livestock/hubs-infra-registry": "0.1.0",
     "jose": "6.2.3"
   }
 }
