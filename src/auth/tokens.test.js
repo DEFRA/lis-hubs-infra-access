@@ -209,7 +209,7 @@ test('getHubServiceJwtPayloadFromRequest accepts bearer tokens for fetch-based r
 test('createSpokeGuard rehydrates permissions from hub-service JWT roles', async () => {
   const guard = createSpokeGuard({
     spokeId: 'cattle-status',
-    hubOrigin: 'http://localhost:3000',
+    hubOrigins: ['http://localhost:3000'],
     cookieName: 'livestock_hub_jwt',
     cookieOptions: getHubJwtCookieOptions({
       ttlSeconds: jwtConfig.ttlSeconds,
@@ -218,7 +218,6 @@ test('createSpokeGuard rehydrates permissions from hub-service JWT roles', async
     assetPath: '/public',
     port: 3210,
     secret: jwtConfig.secret,
-    issuer: jwtConfig.issuer,
     audience: jwtConfig.audience
   })
 
@@ -286,7 +285,7 @@ test('createSpokeGuard rehydrates permissions from hub-service JWT roles', async
 test('createSpokeGuard supports hub-service authentication on marked user-session routes', async () => {
   const guard = createSpokeGuard({
     spokeId: 'cattle-home',
-    hubOrigin: 'http://localhost:3000',
+    hubOrigins: ['http://localhost:3000'],
     cookieName: 'livestock_hub_jwt',
     cookieOptions: getHubJwtCookieOptions({
       ttlSeconds: jwtConfig.ttlSeconds,
@@ -296,7 +295,6 @@ test('createSpokeGuard supports hub-service authentication on marked user-sessio
     port: 3221,
     basePath: '/cattle/home',
     secret: jwtConfig.secret,
-    issuer: jwtConfig.issuer,
     audience: jwtConfig.audience,
     allowHubServiceRoutes: true
   })
@@ -379,7 +377,7 @@ test('getCurrentSpokeAccessMode resolves the current status spoke to hub-service
 test('createSpokeGuard returns a hub-service guard for status spokes', () => {
   const guard = createSpokeGuard({
     spokeId: 'cattle-status',
-    hubOrigin: 'http://localhost:3000',
+    hubOrigins: ['http://localhost:3000'],
     cookieName: 'livestock_hub_jwt',
     cookieOptions: getHubJwtCookieOptions({
       ttlSeconds: jwtConfig.ttlSeconds,
@@ -388,7 +386,6 @@ test('createSpokeGuard returns a hub-service guard for status spokes', () => {
     assetPath: '/public',
     port: 3210,
     secret: jwtConfig.secret,
-    issuer: jwtConfig.issuer,
     audience: jwtConfig.audience
   })
 
@@ -398,7 +395,7 @@ test('createSpokeGuard returns a hub-service guard for status spokes', () => {
 test('createSpokeGuard returns a user-session guard for move spokes', () => {
   const guard = createSpokeGuard({
     spokeId: 'cattle-move',
-    hubOrigin: 'http://localhost:3000',
+    hubOrigins: ['http://localhost:3000'],
     cookieName: 'livestock_hub_jwt',
     cookieOptions: getHubJwtCookieOptions({
       ttlSeconds: jwtConfig.ttlSeconds,
@@ -407,7 +404,6 @@ test('createSpokeGuard returns a user-session guard for move spokes', () => {
     assetPath: '/public',
     port: 3204,
     secret: jwtConfig.secret,
-    issuer: jwtConfig.issuer,
     audience: jwtConfig.audience
   })
 

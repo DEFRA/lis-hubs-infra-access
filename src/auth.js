@@ -30,6 +30,7 @@ export {
   issueHubJwt,
   isPublicRequest,
   resolveAccessMode,
+  resolveHubOrigin,
   sanitizeReturnUrl,
   verifyHubJwt,
   verifyHubServiceJwt

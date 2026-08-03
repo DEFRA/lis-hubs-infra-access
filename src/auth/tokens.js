@@ -428,7 +428,12 @@ function createRequestGuard({ name, assetPath, registerState, authenticate }) {
   }
 }
 
-function resolveHubOrigin(request, defaultHubOrigin, hubOrigins = []) {
+/**
+ * @param {Request} request
+ * @param {string[]} hubOrigins
+ * @returns {string}
+ */
+export function resolveHubOrigin(request, hubOrigins = []) {
   const requestHost =
     request.headers?.['x-forwarded-host'] ?? request.headers?.host ?? ''
   const requestHostname = requestHost.split(',')[0].trim()
@@ -437,16 +442,15 @@ function resolveHubOrigin(request, defaultHubOrigin, hubOrigins = []) {
   return (
     hubOrigins.find((origin) => new URL(origin).host === requestHostname) ??
     hubOrigins.find((origin) => referer?.startsWith(`${origin}/`)) ??
-    defaultHubOrigin
+    hubOrigins[0]
   )
 }
 
 /**
- * @param {{ hubOrigin: string, cookieName: string, cookieOptions: object, assetPath: string, port: number, secret: string, issuer: string, audience: string }} options
+ * @param {{ hubOrigins: string[], cookieName: string, cookieOptions: object, assetPath: string, port: number, secret: string, audience: string }} options
  * @returns {object}
  */
 export function createAuthGuard({
-  hubOrigin,
   hubOrigins,
   cookieName,
   cookieOptions,
@@ -454,7 +458,6 @@ export function createAuthGuard({
   port,
   basePath,
   secret,
-  issuer,
   audience
 }) {
   return createRequestGuard({
@@ -467,13 +470,13 @@ export function createAuthGuard({
       const hubJwtPayload = await getHubJwtPayloadFromRequest(request, {
         cookieName,
         secret,
-        issuer,
+        issuer: hubOrigins,
         audience
       })
 
       if (!hubJwtPayload) {
         const loginUrl = buildHubLoginUrl({
-          hubOrigin: resolveHubOrigin(request, hubOrigin, hubOrigins),
+          hubOrigin: resolveHubOrigin(request, hubOrigins),
           returnUrl: buildMicrositeReturnUrl(request, { port, basePath })
         })
 
@@ -481,19 +484,20 @@ export function createAuthGuard({
       }
 
       request.app.hubAuth = hydrateAuthorization(hubJwtPayload)
+      request.app.hubOrigin = resolveHubOrigin(request, hubOrigins)
       return h.continue
     }
   })
 }
 
 /**
- * @param {{ assetPath: string, secret: string, issuer: string, audience: string, taxonomyId: string, spokeId: string }} options
+ * @param {{ assetPath: string, secret: string, hubOrigins: string[], audience: string, taxonomyId: string, spokeId: string }} options
  * @returns {object}
  */
 export function createHubServiceGuard({
   assetPath,
   secret,
-  issuer,
+  hubOrigins,
   audience,
   taxonomyId,
   spokeId
@@ -506,7 +510,7 @@ export function createHubServiceGuard({
         request,
         {
           secret,
-          issuer,
+          issuer: hubOrigins,
           audience,
           taxonomyId,
           spokeId
@@ -544,7 +548,6 @@ function hydrateHubServiceActor(request, hubServiceJwtPayload) {
 }
 
 function createRouteAwareAuthGuard({
-  hubOrigin,
   hubOrigins,
   cookieName,
   cookieOptions,
@@ -552,7 +555,6 @@ function createRouteAwareAuthGuard({
   port,
   basePath,
   secret,
-  issuer,
   audience,
   taxonomyId,
   spokeId
@@ -567,7 +569,7 @@ function createRouteAwareAuthGuard({
       if (request.route?.settings?.app?.authMode === HUB_SERVICE_SUBJECT) {
         const hubServiceJwtPayload = await getHubServiceJwtPayloadFromRequest(
           request,
-          { secret, issuer, audience, taxonomyId, spokeId }
+          { secret, issuer: hubOrigins, audience, taxonomyId, spokeId }
         )
 
         if (!hubServiceJwtPayload) {
@@ -584,13 +586,13 @@ function createRouteAwareAuthGuard({
       const hubJwtPayload = await getHubJwtPayloadFromRequest(request, {
         cookieName,
         secret,
-        issuer,
+        issuer: hubOrigins,
         audience
       })
 
       if (!hubJwtPayload) {
         const loginUrl = buildHubLoginUrl({
-          hubOrigin: resolveHubOrigin(request, hubOrigin, hubOrigins),
+          hubOrigin: resolveHubOrigin(request, hubOrigins),
           returnUrl: buildMicrositeReturnUrl(request, { port, basePath })
         })
 
@@ -598,18 +600,18 @@ function createRouteAwareAuthGuard({
       }
 
       request.app.hubAuth = hydrateAuthorization(hubJwtPayload)
+      request.app.hubOrigin = resolveHubOrigin(request, hubOrigins)
       return h.continue
     }
   })
 }
 
 /**
- * @param {{ spokeId: string, hubOrigin: string, cookieName: string, cookieOptions: object, assetPath: string, port: number, secret: string, issuer: string, audience: string, allowHubServiceRoutes?: boolean }} options
+ * @param {{ spokeId: string, hubOrigins: string[], cookieName: string, cookieOptions: object, assetPath: string, port: number, secret: string, audience: string, allowHubServiceRoutes?: boolean }} options
  * @returns {object | null}
  */
 export function createSpokeGuard({
   spokeId,
-  hubOrigin,
   hubOrigins,
   cookieName,
   cookieOptions,
@@ -617,7 +619,6 @@ export function createSpokeGuard({
   port,
   basePath,
   secret,
-  issuer,
   audience,
   allowHubServiceRoutes = false
 }) {
@@ -637,7 +638,7 @@ export function createSpokeGuard({
     return createHubServiceGuard({
       assetPath,
       secret,
-      issuer,
+      hubOrigins,
       audience,
       taxonomyId: spoke.taxonomy.id,
       spokeId: spoke.id
@@ -646,7 +647,6 @@ export function createSpokeGuard({
 
   if (allowHubServiceRoutes) {
     return createRouteAwareAuthGuard({
-      hubOrigin,
       hubOrigins,
       cookieName,
       cookieOptions,
@@ -654,7 +654,6 @@ export function createSpokeGuard({
       port,
       basePath,
       secret,
-      issuer,
       audience,
       taxonomyId: spoke.taxonomy.id,
       spokeId: spoke.id
@@ -662,7 +661,6 @@ export function createSpokeGuard({
   }
 
   return createAuthGuard({
-    hubOrigin,
     hubOrigins,
     cookieName,
     cookieOptions,
@@ -670,7 +668,6 @@ export function createSpokeGuard({
     port,
     basePath,
     secret,
-    issuer,
     audience
   })
 }
