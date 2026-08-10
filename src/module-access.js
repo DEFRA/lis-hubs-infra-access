@@ -191,7 +191,7 @@ export function hasModuleAccess(user, moduleAccess) {
   return permissions.some((permission) => {
     const parsedPermission = parsePermission(permission)
 
-    if (!parsedPermission || parsedPermission.scope !== moduleAccess.scope) {
+    if (parsedPermission?.scope !== moduleAccess.scope) {
       return false
     }
 

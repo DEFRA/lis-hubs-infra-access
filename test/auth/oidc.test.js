@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict'
 import { afterEach, test, vi } from 'vitest'
 
+const jose = vi.hoisted(() => ({
+  createRemoteJWKSet: vi.fn(() => 'remote-jwks'),
+  jwtVerify: vi.fn()
+}))
+
+vi.mock('jose', () => jose)
+
 import { createOidcClient } from '../../src/auth/oidc.js'
 
 const providerConfig = {
@@ -51,6 +58,7 @@ function mockDiscovery(response = metadata) {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.clearAllMocks()
 })
 
 test('fetches and caches provider discovery metadata', async () => {
@@ -117,6 +125,39 @@ test('builds an authorization URL and stores its flow state', async () => {
   assert.equal(flow.providerId, 'entra')
 })
 
+test('omits provider-specific parameters when no service id is configured', async () => {
+  const fetch = mockDiscovery()
+  const client = createClient({
+    getProviderConfig: () => ({ ...providerConfig, serviceId: undefined })
+  })
+  const request = createRequest()
+
+  const authorizationUrl = new URL(
+    await client.buildAuthorizationUrl(request, 'entra')
+  )
+
+  assert.equal(authorizationUrl.searchParams.has('serviceId'), false)
+
+  request.query = {
+    state: request.yar.get('hub-auth-flow').state,
+    code: 'authorization-code'
+  }
+  jose.jwtVerify.mockResolvedValue({
+    payload: { sub: 'user-1', nonce: request.yar.get('hub-auth-flow').nonce }
+  })
+  fetch.mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({ id_token: 'id-token' })
+  })
+
+  await client.completeAuthorizationCodeGrant(request)
+
+  const tokenRequest = fetch.mock.calls.find(
+    ([url]) => url === metadata.token_endpoint
+  )[1]
+  assert.equal(tokenRequest.body.has('serviceId'), false)
+})
+
 test('validates an authorization callback before exchanging tokens', async () => {
   const client = createClient()
 
@@ -147,6 +188,102 @@ test('validates an authorization callback before exchanging tokens', async () =>
   await assert.rejects(
     client.completeAuthorizationCodeGrant(request),
     /Authorization code was not returned/
+  )
+})
+
+test('completes an authorization code grant and clears the flow', async () => {
+  const fetch = mockDiscovery()
+  const values = new Map([
+    [
+      'hub-auth-flow',
+      {
+        state: 'expected-state',
+        nonce: 'expected-nonce',
+        codeVerifier: 'verifier',
+        providerId: 'entra',
+        returnUrl: '/cattle/status'
+      }
+    ]
+  ])
+  const request = createRequest(values)
+  request.query = { state: 'expected-state', code: 'authorization-code' }
+  fetch.mockResolvedValueOnce({ ok: true, json: async () => metadata })
+  fetch.mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({
+      id_token: 'id-token',
+      access_token: 'access-token'
+    })
+  })
+  jose.jwtVerify.mockResolvedValue({
+    payload: {
+      sub: 'user-1',
+      nonce: 'expected-nonce',
+      serviceId: 'livestock-hub'
+    }
+  })
+
+  const result = await createClient().completeAuthorizationCodeGrant(request)
+
+  assert.deepEqual(result.user, {
+    sub: 'user-1',
+    nonce: 'expected-nonce',
+    serviceId: 'livestock-hub'
+  })
+  assert.equal(result.authSession.idToken, 'id-token')
+  assert.ok(result.authSession.authenticatedAt)
+  assert.equal(result.accessToken, 'access-token')
+  assert.equal(result.providerId, 'entra')
+  assert.equal(result.returnUrl, '/cattle/status')
+  assert.equal(values.has('hub-auth-flow'), false)
+  assert.deepEqual(jose.createRemoteJWKSet.mock.calls[0], [
+    new URL(metadata.jwks_uri)
+  ])
+  assert.deepEqual(jose.jwtVerify.mock.calls[0], [
+    'id-token',
+    'remote-jwks',
+    { issuer: metadata.issuer, audience: providerConfig.clientId }
+  ])
+})
+
+test('rejects invalid token responses and identity claims', async () => {
+  async function completeWith(tokenResponse, payload) {
+    const fetch = mockDiscovery()
+    const request = createRequest(
+      new Map([
+        [
+          'hub-auth-flow',
+          {
+            state: 'expected-state',
+            nonce: 'expected-nonce',
+            codeVerifier: 'verifier',
+            providerId: 'entra'
+          }
+        ]
+      ])
+    )
+    request.query = { state: 'expected-state', code: 'authorization-code' }
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => metadata })
+    fetch.mockResolvedValueOnce({ ok: true, json: async () => tokenResponse })
+    jose.jwtVerify.mockResolvedValue({ payload })
+
+    return createClient().completeAuthorizationCodeGrant(request)
+  }
+
+  await assert.rejects(
+    completeWith({}, {}),
+    /Token response did not include an ID token/
+  )
+  await assert.rejects(
+    completeWith({ id_token: 'id-token' }, { nonce: 'wrong-nonce' }),
+    /Nonce mismatch/
+  )
+  await assert.rejects(
+    completeWith(
+      { id_token: 'id-token' },
+      { nonce: 'expected-nonce', serviceId: 'other-service' }
+    ),
+    /Unexpected serviceId claim/
   )
 })
 

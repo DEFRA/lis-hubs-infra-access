@@ -4,13 +4,13 @@
  */
 export function createProfileService({ config, fetchImpl = globalThis.fetch }) {
   if (!config?.get) {
-    throw new Error(
+    throw new TypeError(
       'Profile service requires a config object with a get method'
     )
   }
 
   if (typeof fetchImpl !== 'function') {
-    throw new Error('Profile service requires a fetch implementation')
+    throw new TypeError('Profile service requires a fetch implementation')
   }
 
   return async function fetchUserProfile(user, accessToken = null) {
@@ -49,7 +49,7 @@ export function createProfileService({ config, fetchImpl = globalThis.fetch }) {
 
     if (!response.ok) {
       const responseText = await response.text()
-      throw new Error(
+      throw new TypeError(
         `Profile service request failed with ${response.status}: ${responseText}`
       )
     }

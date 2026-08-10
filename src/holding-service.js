@@ -4,20 +4,20 @@
  */
 export function createHoldingService({ config, fetchImpl = globalThis.fetch }) {
   if (!config?.get) {
-    throw new Error(
+    throw new TypeError(
       'Holding service requires a config object with a get method'
     )
   }
 
   if (typeof fetchImpl !== 'function') {
-    throw new Error('Holding service requires a fetch implementation')
+    throw new TypeError('Holding service requires a fetch implementation')
   }
 
   return async function fetchHoldingProfile(holding) {
     const holdingService = getHoldingServiceConfig(config)
 
     if (!holdingService.url) {
-      throw new Error('Holding service is not configured')
+      throw new TypeError('Holding service is not configured')
     }
 
     const headers = { accept: 'application/json' }
@@ -36,7 +36,7 @@ export function createHoldingService({ config, fetchImpl = globalThis.fetch }) {
 
     if (!response.ok) {
       const responseText = await response.text()
-      throw new Error(
+      throw new TypeError(
         `Holding service request failed with ${response.status}: ${responseText}`
       )
     }
