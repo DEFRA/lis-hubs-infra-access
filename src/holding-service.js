@@ -4,7 +4,9 @@
  */
 export function createHoldingService({ config, fetchImpl = globalThis.fetch }) {
   if (!config?.get) {
-    throw new Error('Holding service requires a config object with a get method')
+    throw new Error(
+      'Holding service requires a config object with a get method'
+    )
   }
 
   if (typeof fetchImpl !== 'function') {

@@ -1,20 +1,20 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import { test } from 'vitest'
 
 import {
-  buildCurrentRequestUrl,
-  buildMicrositeReturnUrl,
   createSpokeGuard,
   createSpokeAuthToken,
   getCurrentSpokeAccessMode,
+  getReturnUrlFromRequest,
+  getSpokeAccessMode,
+  getSpokeById,
   getHubJwtPayloadFromRequest,
   getHubJwtCookieOptions,
   getHubServiceJwtPayloadFromRequest,
-  issueHubJwt,
   resolveAccessMode,
-  verifyHubJwt
-} from './tokens.js'
-import { MODULES } from '@livestock/hubs-infra-registry'
+  sanitizeReturnUrl
+} from '../../src/auth/tokens.js'
+import { MODULES } from '@defra/lis-hubs-infra-registry'
 
 const SPOKES = MODULES.map((module) => ({
   ...module,
@@ -27,128 +27,6 @@ const jwtConfig = {
   audience: 'livestock-spokes',
   ttlSeconds: 3600
 }
-
-test('issueHubJwt carries holdings into the spoke session', async () => {
-  const holdings = [
-    {
-      group_name: 'My farm',
-      cphs: [{ cph: '10/081/1234' }]
-    }
-  ]
-  const token = await issueHubJwt(
-    {
-      sub: 'holding-user',
-      roles: ['lis-role-front-office'],
-      holdings
-    },
-    jwtConfig
-  )
-
-  const payload = await verifyHubJwt(token, jwtConfig)
-
-  assert.deepEqual(payload.holdings, holdings)
-})
-
-test('buildCurrentRequestUrl reapplies the forwarded prefix for mounted spokes', () => {
-  const url = buildCurrentRequestUrl(
-    {
-      headers: {
-        host: 'localhost:3000',
-        'x-forwarded-prefix': '/chicken/move'
-      },
-      raw: {
-        req: {
-          url: '/about?step=1'
-        }
-      },
-      path: '/about'
-    },
-    3206
-  )
-
-  assert.equal(
-    url.toString(),
-    'http://localhost:3000/chicken/move/about?step=1'
-  )
-})
-
-test('buildMicrositeReturnUrl preserves a proxied deep link as a relative hub path', () => {
-  const returnUrl = buildMicrositeReturnUrl(
-    {
-      headers: {
-        host: 'front-office.lis.defra',
-        'x-forwarded-proto': 'https',
-        'x-forwarded-prefix': '/cattle/register'
-      },
-      raw: { req: { url: '/check?reference=123' } },
-      path: '/check'
-    },
-    { port: 3201, basePath: '/cattle/register' }
-  )
-
-  assert.equal(returnUrl, '/cattle/register/check?reference=123')
-})
-
-test('buildMicrositeReturnUrl canonicalizes direct-port access to its public mount path', () => {
-  const returnUrl = buildMicrositeReturnUrl(
-    {
-      headers: { host: 'localhost:3201' },
-      raw: { req: { url: '/' } },
-      path: '/'
-    },
-    { port: 3201, basePath: '/cattle/register' }
-  )
-
-  assert.equal(returnUrl, '/cattle/register')
-})
-
-test('createSpokeAuthToken returns a bearer token value', async () => {
-  const bearerToken = await createSpokeAuthToken(
-    {
-      taxonomyId: 'status',
-      spokeId: 'cattle-status',
-      user: {
-        sub: 'test-user',
-        email: 'test.user@example.com',
-        firstName: 'Test',
-        lastName: 'User',
-        roles: ['lis-role-caseworker'],
-        permissions: ['lis-perm-front-office', 'lis-perm-cattle-read']
-      }
-    },
-    jwtConfig
-  )
-
-  assert.match(bearerToken, /^Bearer\s.+$/)
-})
-
-test('createSpokeAuthToken signs a JWT with the expected hub service claims', async () => {
-  const bearerToken = await createSpokeAuthToken(
-    {
-      taxonomyId: 'status',
-      spokeId: 'cattle-status',
-      user: {
-        sub: 'test-user',
-        email: 'test.user@example.com',
-        firstName: 'Test',
-        lastName: 'User',
-        roles: ['lis-role-caseworker'],
-        permissions: ['lis-perm-front-office', 'lis-perm-cattle-read']
-      }
-    },
-    jwtConfig
-  )
-
-  const [, token] = bearerToken.split(' ')
-  const payload = await verifyHubJwt(token, jwtConfig)
-
-  assert.equal(payload.sub, 'hub-service')
-  assert.equal(payload.taxonomy, 'status')
-  assert.equal(payload.spokeId, 'cattle-status')
-  assert.equal(payload.actorEmail, 'test.user@example.com')
-  assert.deepEqual(payload.actorRoles, ['lis-role-caseworker'])
-  assert.equal('actorPermissions' in payload, false)
-})
 
 test('getHubJwtPayloadFromRequest only accepts the hub session cookie', async () => {
   const payload = await getHubJwtPayloadFromRequest(
@@ -345,30 +223,6 @@ test('createSpokeGuard supports hub-service authentication on marked user-sessio
   ])
 })
 
-test('resolveAccessMode returns the most restrictive mode', () => {
-  assert.equal(
-    resolveAccessMode({
-      taxonomyAccessMode: 'public',
-      spokeAccessMode: 'user-session'
-    }),
-    'user-session'
-  )
-  assert.equal(
-    resolveAccessMode({
-      taxonomyAccessMode: 'user-session',
-      spokeAccessMode: 'hub-service'
-    }),
-    'hub-service'
-  )
-  assert.equal(
-    resolveAccessMode({
-      taxonomyAccessMode: 'hub-service',
-      spokeAccessMode: 'public'
-    }),
-    'hub-service'
-  )
-})
-
 test('getCurrentSpokeAccessMode resolves the current status spoke to hub-service', () => {
   assert.equal(getCurrentSpokeAccessMode('cattle-status'), 'hub-service')
   assert.equal(getCurrentSpokeAccessMode('cattle-move'), 'user-session')
@@ -435,4 +289,86 @@ test('prints the effective auth guard for each spoke', () => {
 
   assert.deepEqual([...new Set(statusGuards)], ['hubServiceGuard'])
   assert.deepEqual([...new Set(nonStatusGuards)], ['authGuard'])
+})
+
+test('sanitizes unsafe return URLs', () => {
+  assert.equal(sanitizeReturnUrl(), '/')
+  assert.equal(sanitizeReturnUrl('/safe/path'), '/safe/path')
+  assert.equal(sanitizeReturnUrl('//evil.example/path'), '/')
+  assert.equal(sanitizeReturnUrl('https://evil.example/path'), '/')
+  assert.equal(sanitizeReturnUrl('not a URL'), '/')
+  assert.equal(
+    sanitizeReturnUrl('http://localhost:3000/local'),
+    'http://localhost:3000/local'
+  )
+  assert.equal(
+    sanitizeReturnUrl('http://127.0.0.1:3000/local'),
+    'http://127.0.0.1:3000/local'
+  )
+  assert.equal(
+    getReturnUrlFromRequest({ query: { returnUrl: '//evil.example' } }),
+    '/'
+  )
+})
+
+test('rejects unknown access modes and defaults unknown spokes', () => {
+  assert.throws(
+    () => resolveAccessMode({ spokeAccessMode: 'unknown' }),
+    /Unknown access mode: unknown/
+  )
+  assert.equal(getSpokeById('unknown'), null)
+  assert.equal(getCurrentSpokeAccessMode('unknown'), 'user-session')
+  assert.equal(
+    getSpokeAccessMode({ taxonomy: { id: 'unknown' } }),
+    'user-session'
+  )
+  assert.throws(
+    () => createSpokeGuard({ spokeId: 'unknown' }),
+    /Unable to resolve spoke configuration for unknown/
+  )
+})
+
+test('returns null for missing and invalid hub session cookies', async () => {
+  const options = {
+    cookieName: 'hub-jwt',
+    secret: jwtConfig.secret,
+    issuer: jwtConfig.issuer,
+    audience: jwtConfig.audience
+  }
+
+  assert.equal(await getHubJwtPayloadFromRequest({ state: {} }, options), null)
+  assert.equal(
+    await getHubJwtPayloadFromRequest(
+      { state: { 'hub-jwt': 'not-a-jwt' } },
+      options
+    ),
+    null
+  )
+})
+
+test('rejects malformed bearer headers and invalid service tokens', async () => {
+  const options = {
+    secret: jwtConfig.secret,
+    issuer: jwtConfig.issuer,
+    audience: jwtConfig.audience,
+    taxonomyId: 'status',
+    spokeId: 'cattle-status'
+  }
+
+  for (const authorization of [undefined, 'Basic token', 'Bearer', '']) {
+    assert.equal(
+      await getHubServiceJwtPayloadFromRequest(
+        { headers: { authorization } },
+        options
+      ),
+      null
+    )
+  }
+  assert.equal(
+    await getHubServiceJwtPayloadFromRequest(
+      { headers: { authorization: 'Bearer invalid' } },
+      options
+    ),
+    null
+  )
 })

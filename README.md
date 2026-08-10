@@ -25,7 +25,7 @@ direct-port requests to the microsite's configured `basePath` and sends that
 relative path to the front-office login route. Relative return URLs prevent an
 untrusted host header from becoming an authentication redirect target.
 
-This package should depend on hub facts from `@livestock/hubs-infra-registry`, not on deployable hub policy.
+This package should depend on hub facts from `@defra/lis-hubs-infra-registry`, not on deployable hub policy.
 
 Current implementation notes:
 
