@@ -4,9 +4,11 @@
   },
 
   "lis-role-caseworker": {
-    "permissions": ["lis-perm-cattle-read",
+    "permissions": [
+      "lis-perm-cattle-read",
       "lis-perm-cattle-register-write",
-      "lis-perm-sheep-read"]
+      "lis-perm-sheep-read"
+    ]
   },
   "lis-role-caseworker-super": {
     "permissions": [
@@ -28,18 +30,16 @@
     "permissions": ["lis-perm-sheep-read", "lis-perm-sheep-write"]
   },
 
-  "lis-role-sheep-register-read":  {
-    "permissions": [
-      "lis-perm-sheep-register-read"
-    ]
+  "lis-role-sheep-register-read": {
+    "permissions": ["lis-perm-sheep-register-read"]
   },
-  "lis-role-sheep-register-write":  {
+  "lis-role-sheep-register-write": {
     "permissions": [
       "lis-perm-sheep-register-read",
       "lis-perm-sheep-register-write"
     ]
   },
-  "lis-role-sheep-register-admin":  {
+  "lis-role-sheep-register-admin": {
     "permissions": [
       "lis-perm-sheep-register-read",
       "lis-perm-sheep-register-write",
@@ -51,10 +51,7 @@
   },
 
   "lis-role-sheep-home-write": {
-    "permissions": [
-      "lis-perm-sheep-home-read",
-      "lis-perm-sheep-home-write"
-    ]
+    "permissions": ["lis-perm-sheep-home-read", "lis-perm-sheep-home-write"]
   },
   "lis-role-sheep-home-admin": {
     "permissions": [
@@ -67,29 +64,27 @@
     "permissions": ["lis-perm-sheep-death-read"]
   },
   "lis-role-sheep-death-write": {
-    "permissions": [
-      "lis-perm-sheep-death-read",
-      "lis-perm-sheep-death-write"]
+    "permissions": ["lis-perm-sheep-death-read", "lis-perm-sheep-death-write"]
   },
   "lis-role-sheep-death-admin": {
     "permissions": [
       "lis-perm-sheep-death-read",
       "lis-perm-sheep-death-write",
-      "lis-perm-sheep-death-admin"]
+      "lis-perm-sheep-death-admin"
+    ]
   },
   "lis-role-sheep-move-read": {
     "permissions": ["lis-perm-sheep-move-read"]
   },
   "lis-role-sheep-move-write": {
-    "permissions": [
-      "lis-perm-sheep-move-read",
-      "lis-perm-sheep-move-write"]
+    "permissions": ["lis-perm-sheep-move-read", "lis-perm-sheep-move-write"]
   },
   "lis-role-sheep-move-admin": {
     "permissions": [
       "lis-perm-sheep-move-read",
       "lis-perm-sheep-move-write",
-      "lis-perm-sheep-move-admin"]
+      "lis-perm-sheep-move-admin"
+    ]
   },
 
   "lis-role-cattle-read": {
@@ -100,18 +95,16 @@
     "permissions": ["lis-perm-cattle-read", "lis-perm-cattle-write"]
   },
 
-  "lis-role-cattle-register-read":  {
-    "permissions": [
-      "lis-perm-cattle-register-read"
-    ]
+  "lis-role-cattle-register-read": {
+    "permissions": ["lis-perm-cattle-register-read"]
   },
-  "lis-role-cattle-register-write":  {
+  "lis-role-cattle-register-write": {
     "permissions": [
       "lis-perm-cattle-register-read",
       "lis-perm-cattle-register-write"
     ]
   },
-  "lis-role-cattle-register-admin":  {
+  "lis-role-cattle-register-admin": {
     "permissions": [
       "lis-perm-cattle-register-read",
       "lis-perm-cattle-register-write",
@@ -123,10 +116,7 @@
   },
 
   "lis-role-cattle-home-write": {
-    "permissions": [
-      "lis-perm-cattle-home-read",
-      "lis-perm-cattle-home-write"
-    ]
+    "permissions": ["lis-perm-cattle-home-read", "lis-perm-cattle-home-write"]
   },
   "lis-role-cattle-home-admin": {
     "permissions": [
@@ -139,29 +129,27 @@
     "permissions": ["lis-perm-cattle-death-read"]
   },
   "lis-role-cattle-death-write": {
-    "permissions": [
-      "lis-perm-cattle-death-read",
-      "lis-perm-cattle-death-write"]
+    "permissions": ["lis-perm-cattle-death-read", "lis-perm-cattle-death-write"]
   },
   "lis-role-cattle-death-admin": {
     "permissions": [
       "lis-perm-cattle-death-read",
       "lis-perm-cattle-death-write",
-      "lis-perm-cattle-death-admin"]
+      "lis-perm-cattle-death-admin"
+    ]
   },
   "lis-role-cattle-move-read": {
     "permissions": ["lis-perm-cattle-move-read"]
   },
   "lis-role-cattle-move-write": {
-    "permissions": [
-      "lis-perm-cattle-move-read",
-      "lis-perm-cattle-move-write"]
+    "permissions": ["lis-perm-cattle-move-read", "lis-perm-cattle-move-write"]
   },
   "lis-role-cattle-move-admin": {
     "permissions": [
       "lis-perm-cattle-move-read",
       "lis-perm-cattle-move-write",
-      "lis-perm-cattle-move-admin"]
+      "lis-perm-cattle-move-admin"
+    ]
   },
 
   "lis-role-front-office": {

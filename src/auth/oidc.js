@@ -1,5 +1,7 @@
-import { createRemoteJWKSet, jwtVerify } from 'jose'
 import crypto from 'node:crypto'
+
+import { createRemoteJWKSet, jwtVerify } from 'jose'
+
 import {
   clearHubAuthFlow,
   createHubAuthFlow,
@@ -7,7 +9,6 @@ import {
   getHubAuthSession,
   setHubAuthFlow
 } from './session.js'
-
 import { getReturnUrlFromRequest, sanitizeReturnUrl } from './tokens.js'
 
 async function fetchJson(url, options = {}) {
@@ -20,15 +21,7 @@ async function fetchJson(url, options = {}) {
   return response.json()
 }
 
-export function createOidcClient({
-  getProviderConfig,
-  getHubOrigin,
-  getPrimaryProviderId,
-  mapUser
-}) {
-  const providerMetadata = new Map()
-  const providerJwks = new Map()
-
+function createProviderResolver({ getProviderConfig, getPrimaryProviderId }) {
   function resolveProviderId(providerId) {
     const resolvedProviderId = providerId ?? getPrimaryProviderId?.()
 
@@ -39,7 +32,7 @@ export function createOidcClient({
     return resolvedProviderId
   }
 
-  function resolveProviderConfig(providerId) {
+  return function resolveProviderConfig(providerId) {
     const resolvedProviderId = resolveProviderId(providerId)
     const providerConfig = getProviderConfig(resolvedProviderId)
 
@@ -49,19 +42,14 @@ export function createOidcClient({
       )
     }
 
-    return {
-      providerId: resolvedProviderId,
-      ...providerConfig
-    }
+    return { providerId: resolvedProviderId, ...providerConfig }
   }
+}
 
-  function getRedirectUri(providerId) {
-    const providerConfig = resolveProviderConfig(providerId)
+function createMetadataLoader(resolveProviderConfig) {
+  const providerMetadata = new Map()
 
-    return new URL(providerConfig.redirectPath, getHubOrigin()).toString()
-  }
-
-  async function getOidcMetadata(providerId) {
+  return async function getOidcMetadata(providerId) {
     const providerConfig = resolveProviderConfig(providerId)
 
     if (!providerMetadata.has(providerConfig.providerId)) {
@@ -73,8 +61,21 @@ export function createOidcClient({
 
     return providerMetadata.get(providerConfig.providerId)
   }
+}
 
-  async function exchangeCodeForTokens(providerId, code, codeVerifier) {
+function createRedirectUriResolver(resolveProviderConfig, getHubOrigin) {
+  return function getRedirectUri(providerId) {
+    const providerConfig = resolveProviderConfig(providerId)
+    return new URL(providerConfig.redirectPath, getHubOrigin()).toString()
+  }
+}
+
+function createCodeExchanger({
+  resolveProviderConfig,
+  getOidcMetadata,
+  getRedirectUri
+}) {
+  return async function exchangeCodeForTokens(providerId, code, codeVerifier) {
     const providerConfig = resolveProviderConfig(providerId)
     const metadata = await getOidcMetadata(providerConfig.providerId)
     const body = new URLSearchParams({
@@ -82,10 +83,9 @@ export function createOidcClient({
       code,
       redirect_uri: getRedirectUri(providerConfig.providerId),
       client_id: providerConfig.clientId,
-      client_secret: providerConfig.clientSecret
+      client_secret: providerConfig.clientSecret,
+      code_verifier: codeVerifier
     })
-
-    body.set('code_verifier', codeVerifier)
 
     if (providerConfig.serviceId) {
       body.set('serviceId', providerConfig.serviceId)
@@ -93,67 +93,143 @@ export function createOidcClient({
 
     return fetchJson(metadata.token_endpoint, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/x-www-form-urlencoded'
-      },
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body
     })
   }
+}
 
-  async function buildAuthorizationUrl(request, providerId) {
+function addAuthorizationParameters(
+  authorizationUrl,
+  { providerConfig, redirectUri, authFlow }
+) {
+  const parameters = {
+    client_id: providerConfig.clientId,
+    response_type: 'code',
+    scope: 'openid',
+    redirect_uri: redirectUri,
+    state: authFlow.state,
+    nonce: authFlow.nonce,
+    code_challenge: crypto
+      .createHash('sha256')
+      .update(authFlow.codeVerifier)
+      .digest('base64url'),
+    code_challenge_method: 'S256'
+  }
+
+  for (const [name, value] of Object.entries(parameters)) {
+    authorizationUrl.searchParams.set(name, value)
+  }
+
+  if (providerConfig.serviceId) {
+    authorizationUrl.searchParams.set('serviceId', providerConfig.serviceId)
+  }
+}
+
+function createAuthorizationUrlBuilder({
+  resolveProviderConfig,
+  getOidcMetadata,
+  getRedirectUri
+}) {
+  return async function buildAuthorizationUrl(request, providerId) {
     const providerConfig = resolveProviderConfig(providerId)
     const metadata = await getOidcMetadata(providerConfig.providerId)
-    const returnUrl = getReturnUrlFromRequest(request)
     const authFlow = {
-      ...createHubAuthFlow({ returnUrl }),
+      ...createHubAuthFlow({ returnUrl: getReturnUrlFromRequest(request) }),
       providerId: providerConfig.providerId
     }
 
     setHubAuthFlow(request, authFlow)
 
     const authorizationUrl = new URL(metadata.authorization_endpoint)
-    authorizationUrl.searchParams.set('client_id', providerConfig.clientId)
-    authorizationUrl.searchParams.set('response_type', 'code')
-    authorizationUrl.searchParams.set('scope', 'openid')
-    authorizationUrl.searchParams.set(
-      'redirect_uri',
-      getRedirectUri(providerConfig.providerId)
-    )
-    authorizationUrl.searchParams.set('state', authFlow.state)
-    authorizationUrl.searchParams.set('nonce', authFlow.nonce)
-    authorizationUrl.searchParams.set(
-      'code_challenge',
-      crypto.createHash('sha256').update(authFlow.codeVerifier).digest('base64url')
-    )
-    authorizationUrl.searchParams.set('code_challenge_method', 'S256')
-
-    if (providerConfig.serviceId) {
-      authorizationUrl.searchParams.set('serviceId', providerConfig.serviceId)
-    }
-
+    addAuthorizationParameters(authorizationUrl, {
+      providerConfig,
+      redirectUri: getRedirectUri(providerConfig.providerId),
+      authFlow
+    })
     return authorizationUrl.toString()
   }
+}
 
-  async function completeAuthorizationCodeGrant(request) {
-    const authFlow = getHubAuthFlow(request)
-    const providerId = authFlow?.providerId ?? getPrimaryProviderId?.()
+function resolveAuthorizationFlow(request, getPrimaryProviderId) {
+  const authFlow = getHubAuthFlow(request)
+  const providerId = authFlow?.providerId ?? getPrimaryProviderId?.()
 
-    if (
-      !authFlow?.state ||
-      !authFlow?.nonce ||
-      !authFlow?.codeVerifier ||
-      !providerId
-    ) {
-      throw new Error('Authentication flow session was not found')
+  if (
+    !authFlow?.state ||
+    !authFlow?.nonce ||
+    !authFlow?.codeVerifier ||
+    !providerId
+  ) {
+    throw new Error('Authentication flow session was not found')
+  }
+
+  return { authFlow, providerId }
+}
+
+function validateAuthorizationResponse(request, authFlow) {
+  if (request.query?.state !== authFlow.state) {
+    throw new Error('State mismatch')
+  }
+
+  if (!request.query?.code) {
+    throw new Error('Authorization code was not returned')
+  }
+}
+
+function validateTokenResponse(tokens) {
+  if (!tokens.id_token) {
+    throw new Error('Token response did not include an ID token')
+  }
+}
+
+function validateIdTokenClaims(payload, authFlow, providerConfig) {
+  if (payload.nonce !== authFlow.nonce) {
+    throw new Error('Nonce mismatch')
+  }
+
+  if (
+    providerConfig.serviceId &&
+    payload.serviceId &&
+    payload.serviceId !== providerConfig.serviceId
+  ) {
+    throw new Error('Unexpected serviceId claim')
+  }
+}
+
+function createIdTokenVerifier() {
+  const providerJwks = new Map()
+
+  return async function verifyIdToken(tokens, providerConfig, metadata) {
+    if (!providerJwks.has(providerConfig.providerId)) {
+      providerJwks.set(
+        providerConfig.providerId,
+        createRemoteJWKSet(new URL(metadata.jwks_uri))
+      )
     }
 
-    if (request.query?.state !== authFlow.state) {
-      throw new Error('State mismatch')
-    }
+    return jwtVerify(
+      tokens.id_token,
+      providerJwks.get(providerConfig.providerId),
+      { issuer: metadata.issuer, audience: providerConfig.clientId }
+    )
+  }
+}
 
-    if (!request.query?.code) {
-      throw new Error('Authorization code was not returned')
-    }
+function createAuthorizationCodeCompleter({
+  getPrimaryProviderId,
+  resolveProviderConfig,
+  getOidcMetadata,
+  exchangeCodeForTokens,
+  verifyIdToken,
+  mapUser
+}) {
+  return async function completeAuthorizationCodeGrant(request) {
+    const { authFlow, providerId } = resolveAuthorizationFlow(
+      request,
+      getPrimaryProviderId
+    )
+    validateAuthorizationResponse(request, authFlow)
 
     const providerConfig = resolveProviderConfig(providerId)
     const metadata = await getOidcMetadata(providerConfig.providerId)
@@ -162,38 +238,10 @@ export function createOidcClient({
       request.query.code,
       authFlow.codeVerifier
     )
+    validateTokenResponse(tokens)
 
-    if (!tokens.id_token) {
-      throw new Error('Token response did not include an ID token')
-    }
-
-    if (!providerJwks.has(providerConfig.providerId)) {
-      providerJwks.set(
-        providerConfig.providerId,
-        createRemoteJWKSet(new URL(metadata.jwks_uri))
-      )
-    }
-
-    const { payload } = await jwtVerify(
-      tokens.id_token,
-      providerJwks.get(providerConfig.providerId),
-      {
-        issuer: metadata.issuer,
-        audience: providerConfig.clientId
-      }
-    )
-
-    if (payload.nonce !== authFlow.nonce) {
-      throw new Error('Nonce mismatch')
-    }
-
-    if (
-      providerConfig.serviceId &&
-      payload.serviceId &&
-      payload.serviceId !== providerConfig.serviceId
-    ) {
-      throw new Error('Unexpected serviceId claim')
-    }
+    const { payload } = await verifyIdToken(tokens, providerConfig, metadata)
+    validateIdTokenClaims(payload, authFlow, providerConfig)
 
     const user = mapUser(payload, {
       providerId: providerConfig.providerId,
@@ -215,8 +263,14 @@ export function createOidcClient({
       returnUrl: sanitizeReturnUrl(authFlow.returnUrl)
     }
   }
+}
 
-  async function buildLogoutUrl(request) {
+function createLogoutUrlBuilder({
+  getPrimaryProviderId,
+  getOidcMetadata,
+  getHubOrigin
+}) {
+  return async function buildLogoutUrl(request) {
     const authSession = getHubAuthSession(request)
     const providerId = authSession?.authProvider ?? getPrimaryProviderId?.()
     const metadata = await getOidcMetadata(providerId)
@@ -230,11 +284,47 @@ export function createOidcClient({
 
     return logoutUrl.toString()
   }
+}
+
+/**
+ * Creates the OIDC operations used by the hub authentication plugin.
+ * @param {object} options OIDC client dependencies.
+ * @returns {object} OIDC client operations.
+ */
+export function createOidcClient(options) {
+  const { getProviderConfig, getPrimaryProviderId, getHubOrigin, mapUser } =
+    options
+  const resolveProviderConfig = createProviderResolver({
+    getProviderConfig,
+    getPrimaryProviderId
+  })
+  const getOidcMetadata = createMetadataLoader(resolveProviderConfig)
+  const getRedirectUri = createRedirectUriResolver(
+    resolveProviderConfig,
+    getHubOrigin
+  )
+  const sharedDependencies = {
+    resolveProviderConfig,
+    getOidcMetadata,
+    getRedirectUri
+  }
+  const exchangeCodeForTokens = createCodeExchanger(sharedDependencies)
 
   return {
-    buildAuthorizationUrl,
-    buildLogoutUrl,
-    completeAuthorizationCodeGrant,
+    buildAuthorizationUrl: createAuthorizationUrlBuilder(sharedDependencies),
+    buildLogoutUrl: createLogoutUrlBuilder({
+      getPrimaryProviderId,
+      getOidcMetadata,
+      getHubOrigin
+    }),
+    completeAuthorizationCodeGrant: createAuthorizationCodeCompleter({
+      getPrimaryProviderId,
+      resolveProviderConfig,
+      getOidcMetadata,
+      exchangeCodeForTokens,
+      verifyIdToken: createIdTokenVerifier(),
+      mapUser
+    }),
     getOidcMetadata
   }
 }

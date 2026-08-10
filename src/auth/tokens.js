@@ -3,7 +3,7 @@ import { TextEncoder } from 'node:util'
 
 import { SignJWT, jwtVerify } from 'jose'
 
-import { MODULES, TAXONOMIES } from '@livestock/hubs-infra-registry'
+import { MODULES, TAXONOMIES } from '@defra/lis-hubs-infra-registry'
 import {
   AUTHORIZATION_VERSION,
   hydrateAuthorization
@@ -135,6 +135,12 @@ export function buildCurrentRequestUrl(request, port) {
   return currentUrl
 }
 
+/**
+ * Creates the return URL for a microsite.
+ * @param {Request} request
+ * @param {{ port: number, basePath?: string }} options
+ * @returns {string}
+ */
 export function buildMicrositeReturnUrl(request, { port, basePath = '' }) {
   const currentUrl = buildCurrentRequestUrl(request, port)
   const forwardedPrefix = normalizeForwardedPrefix(

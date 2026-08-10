@@ -11,6 +11,8 @@ import {
 import { getAuthorizedSpecies } from '../module-access.js'
 import { hydrateAuthorization } from '../authorization.js'
 
+const ServiceUnavailable = 503
+
 function createLoginController({
   getCookieOptions,
   getHubJwtConfig,
@@ -50,7 +52,7 @@ function createLoginController({
           .response(
             'Authentication is not available. Check the hub OIDC configuration.'
           )
-          .code(503)
+          .code(ServiceUnavailable)
       }
 
       return h.redirect(authorizationUrl)
@@ -117,6 +119,14 @@ function createLogoutController({
   }
 }
 
+/**
+ * Creates cookie options for hub JWT authentication.
+ *
+ * @param {object} options - Cookie configuration options.
+ * @param {number} options.ttlSeconds - Time to live in seconds for the cookie.
+ * @param {boolean} options.isSecure - Whether the cookie should be secure (HTTPS only).
+ * @returns {object} Cookie options compatible with Hapi server state configuration.
+ */
 export function createHubCookieOptions({ ttlSeconds, isSecure }) {
   return getHubJwtCookieOptions({
     ttlSeconds,
@@ -124,6 +134,21 @@ export function createHubCookieOptions({ ttlSeconds, isSecure }) {
   })
 }
 
+/**
+ * Creates a Hapi plugin for hub authentication with OIDC support.
+ *
+ * @param {object} options - Plugin configuration options.
+ * @param {string} [options.pluginName='auth'] - Name of the plugin.
+ * @param {Function} options.getHubJwtCookieName - Function that returns the JWT cookie name.
+ * @param {Function} options.getCookieOptions - Function that returns cookie options.
+ * @param {Function} options.getHubJwtConfig - Function that returns JWT configuration.
+ * @param {Function} options.resolveAuthSession - Function to resolve and enrich auth session with authorization data.
+ * @param {Function} options.buildAuthorizationUrl - Function to build OIDC authorization URL.
+ * @param {Function} options.completeAuthorizationCodeGrant - Function to complete OIDC authorization code flow.
+ * @param {Function} options.buildLogoutUrl - Function to build logout URL.
+ * @param {Array<{path: string, providerId: string|Function}>} options.loginRoutes - Array of login route configurations.
+ * @returns {{plugin: {name: string, register: Function}}} Hapi plugin object with registration function.
+ */
 export function createHubAuthPlugin({
   pluginName = 'auth',
   getHubJwtCookieName,
