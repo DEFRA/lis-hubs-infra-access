@@ -1,9 +1,9 @@
-import assert from 'node:assert/strict'
-import { test } from 'vitest'
+import { expect, test } from 'vitest'
 
 import { createProfileService } from '../src/profile-service.js'
 
 test('createProfileService returns source roles without trusting source permissions', async () => {
+  // Arrange
   const fetchUserProfile = createProfileService({
     config: {
       get(path) {
@@ -32,19 +32,22 @@ test('createProfileService returns source roles without trusting source permissi
     })
   })
 
+  // Act
   const profile = await fetchUserProfile({
     sub: 'user-1'
   })
 
-  assert.deepEqual(profile, {
+  // Assert
+  expect(profile).toEqual({
     roles: ['lis-role-cattle-editor'],
     roleAssignments: [],
     holdings: ['holding-1']
   })
-  assert.equal('groups' in profile, false)
+  expect('groups' in profile).toBe(false)
 })
 
 test('createProfileService safely handles a missing profile', async () => {
+  // Arrange
   const fetchUserProfile = createProfileService({
     config: {
       get(path) {
@@ -61,7 +64,11 @@ test('createProfileService safely handles a missing profile', async () => {
     })
   })
 
-  assert.deepEqual(await fetchUserProfile({ sub: 'missing-user' }), {
+  // Act
+  const profile = await fetchUserProfile({ sub: 'missing-user' })
+
+  // Assert
+  expect(profile).toEqual({
     roles: [],
     roleAssignments: [],
     holdings: []
@@ -69,25 +76,39 @@ test('createProfileService safely handles a missing profile', async () => {
 })
 
 test('rejects invalid service construction', () => {
-  assert.throws(
-    () => createProfileService({}),
+  // Arrange
+  // Act
+  let noConfigError
+  try {
+    createProfileService({})
+  } catch (e) {
+    noConfigError = e
+  }
+  let noFetchError
+  try {
+    createProfileService({
+      config: {
+        get() {
+          return null
+        }
+      },
+      fetchImpl: false
+    })
+  } catch (e) {
+    noFetchError = e
+  }
+
+  // Assert
+  expect(noConfigError).toBeInstanceOf(Error)
+  expect(noConfigError?.message).toMatch(
     /requires a config object with a get method/
   )
-  assert.throws(
-    () =>
-      createProfileService({
-        config: {
-          get() {
-            return null
-          }
-        },
-        fetchImpl: false
-      }),
-    /requires a fetch implementation/
-  )
+  expect(noFetchError).toBeInstanceOf(Error)
+  expect(noFetchError?.message).toMatch(/requires a fetch implementation/)
 })
 
 test('returns an empty profile when the service URL is not configured', async () => {
+  // Arrange
   const fetchUserProfile = createProfileService({
     config: { get: () => '' },
     fetchImpl: async () => {
@@ -95,7 +116,11 @@ test('returns an empty profile when the service URL is not configured', async ()
     }
   })
 
-  assert.deepEqual(await fetchUserProfile({ sub: 'user-1' }), {
+  // Act
+  const profile = await fetchUserProfile({ sub: 'user-1' })
+
+  // Assert
+  expect(profile).toEqual({
     roles: [],
     roleAssignments: [],
     holdings: []
@@ -103,6 +128,7 @@ test('returns an empty profile when the service URL is not configured', async ()
 })
 
 test('sends user identifiers, bearer token and default API key header', async () => {
+  // Arrange
   let request
   const fetchUserProfile = createProfileService({
     config: {
@@ -127,21 +153,22 @@ test('sends user identifiers, bearer token and default API key header', async ()
     }
   })
 
+  // Act
   const profile = await fetchUserProfile(
     { sub: 'user/1', email: 'user@example.com' },
     'access-token'
   )
 
-  assert.equal(
-    request[0],
+  // Assert
+  expect(request[0]).toBe(
     'http://localhost:4000/profile?user_sub=user%2F1&user_email=user%40example.com'
   )
-  assert.deepEqual(request[1].headers, {
+  expect(request[1].headers).toEqual({
     accept: 'application/json',
     'x-api-key': 'api-secret',
     authorization: 'Bearer access-token'
   })
-  assert.deepEqual(profile, {
+  expect(profile).toEqual({
     roles: ['valid'],
     roleAssignments: [],
     holdings: []
@@ -149,6 +176,7 @@ test('sends user identifiers, bearer token and default API key header', async ()
 })
 
 test('surfaces unsuccessful profile service responses', async () => {
+  // Arrange
   const fetchUserProfile = createProfileService({
     config: {
       get(path) {
@@ -164,8 +192,16 @@ test('surfaces unsuccessful profile service responses', async () => {
     })
   })
 
-  await assert.rejects(
-    fetchUserProfile({}),
-    /request failed with 401: Unauthorized/
-  )
+  // Act
+  let result, error
+  try {
+    result = await fetchUserProfile({})
+  } catch (e) {
+    error = e
+  }
+
+  // Assert
+  expect(result).not.toBeDefined()
+  expect(error).toBeInstanceOf(Error)
+  expect(error?.message).toMatch(/request failed with 401: Unauthorized/)
 })
