@@ -1,10 +1,10 @@
 /* eslint-disable no-empty-function */
-import assert from 'node:assert/strict'
-import { test } from 'vitest'
+import { expect, test } from 'vitest'
 
 import { createHoldingService } from '../src/holding-service.js'
 
 test('createHoldingService fetches a holding by CPH', async () => {
+  // Arrange
   let request
   const fetchHoldingProfile = createHoldingService({
     config: {
@@ -29,10 +29,12 @@ test('createHoldingService fetches a holding by CPH', async () => {
     }
   })
 
+  // Act
   const profile = await fetchHoldingProfile('12/345/6789')
 
-  assert.deepEqual(profile, { ctt: [{ id: 'animal-1' }] })
-  assert.deepEqual(request, [
+  // Assert
+  expect(profile).toEqual({ ctt: [{ id: 'animal-1' }] })
+  expect(request).toEqual([
     'http://localhost:4000/api/holding?holding=12%2F345%2F6789',
     {
       method: 'GET',
@@ -45,26 +47,53 @@ test('createHoldingService fetches a holding by CPH', async () => {
 })
 
 test('rejects invalid service construction', () => {
-  assert.throws(
-    () => createHoldingService({}),
+  // Arrange
+  // Act
+  let noConfigError
+  try {
+    createHoldingService({})
+  } catch (e) {
+    noConfigError = e
+  }
+  let noFetchError
+  try {
+    createHoldingService({ config: { get() {} }, fetchImpl: null })
+  } catch (e) {
+    noFetchError = e
+  }
+
+  // Assert
+  expect(noConfigError).toBeInstanceOf(Error)
+  expect(noConfigError?.message).toMatch(
     /requires a config object with a get method/
   )
-  assert.throws(
-    () => createHoldingService({ config: { get() {} }, fetchImpl: null }),
-    /requires a fetch implementation/
-  )
+  expect(noFetchError).toBeInstanceOf(Error)
+  expect(noFetchError?.message).toMatch(/requires a fetch implementation/)
 })
 
 test('rejects requests when the holding service URL is not configured', async () => {
+  // Arrange
   const fetchHolding = createHoldingService({
     config: { get: () => undefined },
     fetchImpl: async () => ({ ok: true })
   })
 
-  await assert.rejects(fetchHolding('12/345/6789'), /is not configured/)
+  // Act
+  let result, error
+  try {
+    result = await fetchHolding('12/345/6789')
+  } catch (e) {
+    error = e
+  }
+
+  // Assert
+  expect(result).not.toBeDefined()
+  expect(error).toBeInstanceOf(Error)
+  expect(error?.message).toMatch(/is not configured/)
 })
 
 test('uses the default API key header and omits it when no key exists', async () => {
+  // Arrange
   const requests = []
   const fetchHolding = createHoldingService({
     config: {
@@ -80,11 +109,15 @@ test('uses the default API key header and omits it when no key exists', async ()
     }
   })
 
+  // Act
   await fetchHolding('holding-1')
-  assert.deepEqual(requests[0][1].headers, { accept: 'application/json' })
+
+  // Assert
+  expect(requests[0][1].headers).toEqual({ accept: 'application/json' })
 })
 
 test('surfaces unsuccessful holding service responses', async () => {
+  // Arrange
   const fetchHolding = createHoldingService({
     config: {
       get(path) {
@@ -100,8 +133,16 @@ test('surfaces unsuccessful holding service responses', async () => {
     })
   })
 
-  await assert.rejects(
-    fetchHolding('missing'),
-    /request failed with 404: Holding not found/
-  )
+  // Act
+  let result, error
+  try {
+    result = await fetchHolding('missing')
+  } catch (e) {
+    error = e
+  }
+
+  // Assert
+  expect(result).not.toBeDefined()
+  expect(error).toBeInstanceOf(Error)
+  expect(error?.message).toMatch(/request failed with 404: Holding not found/)
 })

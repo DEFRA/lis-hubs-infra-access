@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import { test } from 'vitest'
+import { expect, test } from 'vitest'
 
 import {
   createModuleAccessGuard,
@@ -10,71 +9,84 @@ import {
 } from '../src/module-access.js'
 
 test('resolveModuleAccess infers species-scoped access for status modules', () => {
-  assert.deepEqual(
-    resolveModuleAccess({
-      path: '/cattle/status',
-      taxonomy: 'status'
-    }),
-    {
-      species: 'cattle',
-      scope: 'species',
-      minLevel: 'read'
-    }
-  )
+  // Arrange
+  const module = {
+    path: '/cattle/status',
+    taxonomy: 'status'
+  }
+
+  // Act
+  const result = resolveModuleAccess(module)
+
+  // Assert
+  expect(result).toEqual({
+    species: 'cattle',
+    scope: 'species',
+    minLevel: 'read'
+  })
 })
 
 test('resolveModuleAccess infers app-scoped access for transactional modules', () => {
-  assert.deepEqual(
-    resolveModuleAccess({
-      path: '/cattle/move',
-      taxonomy: 'move'
-    }),
-    {
-      species: 'cattle',
-      scope: 'app',
-      app: 'move',
-      minLevel: 'read'
-    }
-  )
+  // Arrange
+  const module = {
+    path: '/cattle/move',
+    taxonomy: 'move'
+  }
+
+  // Act
+  const result = resolveModuleAccess(module)
+
+  // Assert
+  expect(result).toEqual({
+    species: 'cattle',
+    scope: 'app',
+    app: 'move',
+    minLevel: 'read'
+  })
 })
 
 test('hasModuleAccess allows higher levels within the same scope', () => {
-  assert.equal(
-    hasModuleAccess(
-      {
-        permissions: ['lis-perm-cattle-move-admin']
-      },
-      {
-        species: 'cattle',
-        scope: 'app',
-        app: 'move',
-        minLevel: 'read'
-      }
-    ),
-    true
-  )
+  // Arrange
+  const user = {
+    permissions: ['lis-perm-cattle-move-admin']
+  }
+  const access = {
+    species: 'cattle',
+    scope: 'app',
+    app: 'move',
+    minLevel: 'read'
+  }
+
+  // Act
+  const result = hasModuleAccess(user, access)
+
+  // Assert
+  expect(result).toBe(true)
 })
 
 test('hasModuleAccess allows the back-office role across all modules', () => {
-  assert.equal(
-    hasModuleAccess(
-      {
-        roles: ['lis-role-back-office'],
-        permissions: ['lis-perm-back-office']
-      },
-      {
-        species: 'cattle',
-        scope: 'app',
-        app: 'register',
-        minLevel: 'read'
-      }
-    ),
-    true
-  )
+  // Arrange
+  const user = {
+    roles: ['lis-role-back-office'],
+    permissions: ['lis-perm-back-office']
+  }
+  const access = {
+    species: 'cattle',
+    scope: 'app',
+    app: 'register',
+    minLevel: 'read'
+  }
+
+  // Act
+  const result = hasModuleAccess(user, access)
+
+  // Assert
+  expect(result).toBe(true)
 })
 
 test('getAccessibleModulesForHub filters by portal and module permissions', () => {
-  const modules = getAccessibleModulesForHub({
+  // Arrange
+  const options = {
     hubId: 'front-office',
     user: {
       permissions: [
@@ -103,15 +115,17 @@ test('getAccessibleModulesForHub filters by portal and module permissions', () =
         hubs: ['front-office', 'back-office']
       }
     ]
-  })
+  }
 
-  assert.deepEqual(
-    modules.map(({ id }) => id),
-    ['status-cattle', 'move-cattle']
-  )
+  // Act
+  const modules = getAccessibleModulesForHub(options)
+
+  // Assert
+  expect(modules.map(({ id }) => id)).toEqual(['status-cattle', 'move-cattle'])
 })
 
 test('createModuleAccessGuard allows authorised requests through', () => {
+  // Arrange
   const handler = registerGuardHandler(
     createModuleAccessGuard({
       assetPath: '/assets',
@@ -124,23 +138,24 @@ test('createModuleAccessGuard allows authorised requests through', () => {
     })
   )
   const h = createToolkit()
-
-  const response = handler(
-    {
-      path: '/calf',
-      app: {
-        hubAuth: {
-          permissions: ['lis-perm-cattle-register-write']
-        }
+  const request = {
+    path: '/calf',
+    app: {
+      hubAuth: {
+        permissions: ['lis-perm-cattle-register-write']
       }
-    },
-    h
-  )
+    }
+  }
 
-  assert.equal(response, h.continue)
+  // Act
+  const response = handler(request, h)
+
+  // Assert
+  expect(response).toBe(h.continue)
 })
 
 test('createModuleAccessGuard blocks unauthorised requests with 403', () => {
+  // Arrange
   const handler = registerGuardHandler(
     createModuleAccessGuard({
       assetPath: '/assets',
@@ -153,20 +168,20 @@ test('createModuleAccessGuard blocks unauthorised requests with 403', () => {
     })
   )
   const h = createToolkit()
-
-  const response = handler(
-    {
-      path: '/calf',
-      app: {
-        hubAuth: {
-          permissions: ['lis-perm-cattle-read']
-        }
+  const request = {
+    path: '/calf',
+    app: {
+      hubAuth: {
+        permissions: ['lis-perm-cattle-read']
       }
-    },
-    h
-  )
+    }
+  }
 
-  assert.deepEqual(response, {
+  // Act
+  const response = handler(request, h)
+
+  // Assert
+  expect(response).toEqual({
     payload: { message: 'Module access denied' },
     statusCode: 403,
     takeover: true
@@ -174,13 +189,26 @@ test('createModuleAccessGuard blocks unauthorised requests with 403', () => {
 })
 
 test('rejects a guard without resolvable module access', () => {
-  assert.throws(
-    () => createModuleAccessGuard({ assetPath: '/assets', moduleAccess: {} }),
+  // Arrange
+  const options = { assetPath: '/assets', moduleAccess: {} }
+
+  // Act
+  let error
+  try {
+    createModuleAccessGuard(options)
+  } catch (e) {
+    error = e
+  }
+
+  // Assert
+  expect(error).toBeInstanceOf(Error)
+  expect(error?.message).toMatch(
     /Unable to resolve module access configuration/
   )
 })
 
 test('allows public asset and health requests without authorization', () => {
+  // Arrange
   const handler = registerGuardHandler(
     createModuleAccessGuard({
       assetPath: '/assets',
@@ -189,39 +217,47 @@ test('allows public asset and health requests without authorization', () => {
   )
   const h = createToolkit()
 
-  assert.equal(handler({ path: '/health', app: {} }, h), h.continue)
-  assert.equal(handler({ path: '/assets/app.css', app: {} }, h), h.continue)
+  // Act
+  const healthResponse = handler({ path: '/health', app: {} }, h)
+  const assetResponse = handler({ path: '/assets/app.css', app: {} }, h)
+
+  // Assert
+  expect(healthResponse).toBe(h.continue)
+  expect(assetResponse).toBe(h.continue)
 })
 
 test('returns no modules without portal access or valid membership', () => {
-  assert.deepEqual(
-    getAccessibleModulesForHub({ hubId: '', user: {}, modules: [{}] }),
-    []
-  )
-  assert.deepEqual(
-    getAccessibleModulesForHub({
-      hubId: 'front-office',
-      user: { permissions: ['lis-perm-front-office'] },
-      taxonomy: 'move',
-      modules: [
-        { taxonomy: 'status', hubs: ['front-office'] },
-        { taxonomy: 'move', hubs: 'front-office' },
-        { taxonomy: 'move', hubs: ['back-office'] }
-      ]
-    }),
-    []
-  )
+  // Arrange
+  const noHubOptions = { hubId: '', user: {}, modules: [{}] }
+  const mismatchedOptions = {
+    hubId: 'front-office',
+    user: { permissions: ['lis-perm-front-office'] },
+    taxonomy: 'move',
+    modules: [
+      { taxonomy: 'status', hubs: ['front-office'] },
+      { taxonomy: 'move', hubs: 'front-office' },
+      { taxonomy: 'move', hubs: ['back-office'] }
+    ]
+  }
+
+  // Act
+  const noHubResult = getAccessibleModulesForHub(noHubOptions)
+  const mismatchedResult = getAccessibleModulesForHub(mismatchedOptions)
+
+  // Assert
+  expect(noHubResult).toEqual([])
+  expect(mismatchedResult).toEqual([])
 })
 
 test('denies malformed, insufficient and mismatched permissions', () => {
+  // Arrange
   const access = {
     species: 'cattle',
     scope: 'app',
     app: 'move',
     minLevel: 'write'
   }
-
-  for (const permission of [
+  const invalidPermissions = [
     null,
     '',
     'not-a-lis-permission',
@@ -231,37 +267,58 @@ test('denies malformed, insufficient and mismatched permissions', () => {
     'lis-perm-sheep-move-write',
     'lis-perm-cattle-death-write',
     'lis-perm-cattle-move-read'
-  ]) {
-    assert.equal(hasModuleAccess({ permissions: [permission] }, access), false)
+  ]
+
+  // Act
+  const results = invalidPermissions.map((permission) =>
+    hasModuleAccess({ permissions: [permission] }, access)
+  )
+  const noPermissionsResult = hasModuleAccess({}, access)
+  const emptyAccessResult = hasModuleAccess({ permissions: [] }, {})
+
+  // Assert
+  for (const result of results) {
+    expect(result).toBe(false)
   }
-  assert.equal(hasModuleAccess({}, access), false)
-  assert.equal(hasModuleAccess({ permissions: [] }, {}), false)
+  expect(noPermissionsResult).toBe(false)
+  expect(emptyAccessResult).toBe(false)
 })
 
 test('supports user-scoped permissions and species codes', () => {
-  assert.equal(
-    hasModuleAccess(
-      { permissions: ['LIS-PERM-USER-WRITE'] },
-      { scope: 'user', minLevel: 'read' }
-    ),
-    true
-  )
-  assert.deepEqual(
-    getAuthorizedSpecies({
-      permissions: ['lis-perm-ctt-read', 'lis-perm-sheep-move-write']
-    }).map(({ id }) => id),
-    ['cattle', 'sheep']
-  )
-  assert.deepEqual(getAuthorizedSpecies({ permissions: 'invalid' }), [])
+  // Arrange
+  const userScopedUser = { permissions: ['LIS-PERM-USER-WRITE'] }
+  const userScopedAccess = { scope: 'user', minLevel: 'read' }
+  const mixedSpeciesUser = {
+    permissions: ['lis-perm-ctt-read', 'lis-perm-sheep-move-write']
+  }
+  const invalidUser = { permissions: 'invalid' }
+
+  // Act
+  const userScopedResult = hasModuleAccess(userScopedUser, userScopedAccess)
+  const authorizedSpecies = getAuthorizedSpecies(mixedSpeciesUser)
+  const invalidSpecies = getAuthorizedSpecies(invalidUser)
+
+  // Assert
+  expect(userScopedResult).toBe(true)
+  expect(authorizedSpecies.map(({ id }) => id)).toEqual(['cattle', 'sheep'])
+  expect(invalidSpecies).toEqual([])
 })
 
 test('resolves explicit access and rejects incomplete module metadata', () => {
+  // Arrange
   const access = { species: 'cattle', scope: 'species', minLevel: 'read' }
 
-  assert.equal(resolveModuleAccess({ access }), access)
-  assert.equal(resolveModuleAccess({ path: '/', taxonomy: 'status' }), null)
-  assert.equal(resolveModuleAccess({ path: '/cattle' }), null)
-  assert.equal(resolveModuleAccess(null), null)
+  // Act
+  const explicitAccessResult = resolveModuleAccess({ access })
+  const noPathResult = resolveModuleAccess({ path: '/', taxonomy: 'status' })
+  const noTaxonomyResult = resolveModuleAccess({ path: '/cattle' })
+  const nullResult = resolveModuleAccess(null)
+
+  // Assert
+  expect(explicitAccessResult).toBe(access)
+  expect(noPathResult).toBeNull()
+  expect(noTaxonomyResult).toBeNull()
+  expect(nullResult).toBeNull()
 })
 
 function registerGuardHandler(guard) {
@@ -269,12 +326,12 @@ function registerGuardHandler(guard) {
 
   guard.plugin.register({
     ext(eventName, registeredHandler) {
-      assert.equal(eventName, 'onPreAuth')
+      expect(eventName).toBe('onPreAuth')
       handler = registeredHandler
     }
   })
 
-  assert.ok(handler)
+  expect(handler).toBeTruthy()
   return handler
 }
 
