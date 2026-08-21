@@ -9,6 +9,25 @@ import {
   hydrateAuthorization
 } from '../authorization.js'
 
+/**
+ * @typedef {object} HubJwtConfig
+ * @property {string} secret
+ * @property {string} issuer
+ * @property {string} audience
+ * @property {number} ttlSeconds
+ */
+
+/**
+ * @typedef {object} HubCookieOptions
+ * @property {string} encoding
+ * @property {number} ttl
+ * @property {boolean} isHttpOnly
+ * @property {boolean} isSecure
+ * @property {string} isSameSite
+ * @property {boolean} clearInvalid
+ * @property {string} path
+ */
+
 const statusCodes = {
   unauthorized: 401
 }
@@ -47,7 +66,7 @@ function normalizeAccessMode(accessMode) {
 
 /**
  * @param {{ ttlSeconds: number, isSecure: boolean }} options
- * @returns {object}
+ * @returns {HubCookieOptions}
  */
 export function getHubJwtCookieOptions({ ttlSeconds, isSecure }) {
   return {
@@ -185,7 +204,7 @@ export function isPublicRequest(request, assetPath) {
 
 /**
  * @param {object} user
- * @param {{ secret: string, issuer: string, audience: string, ttlSeconds: number }} options
+ * @param {HubJwtConfig} options
  * @returns {Promise<string>}
  */
 export async function issueHubJwt(

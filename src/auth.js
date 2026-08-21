@@ -1,6 +1,7 @@
-export { createOidcClient } from './auth/oidc.js'
-
-export { createHubAuthPlugin, createHubCookieOptions } from './auth/plugin.js'
+export {
+  createHubAuthPlugin,
+  createHubCookieOptions
+} from './auth/plugin/index.js'
 
 export {
   clearHubAuthFlow,
