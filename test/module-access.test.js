@@ -64,14 +64,14 @@ test('hasModuleAccess allows higher levels within the same scope', () => {
   expect(result).toBe(true)
 })
 
-test('hasModuleAccess allows the back-office role across all modules', () => {
+test('hasModuleAccess denies a role without a matching module permission', () => {
   // Arrange
   const user = {
     roles: ['lis-role-back-office'],
-    permissions: ['lis-perm-back-office']
+    permissions: ['lis-perm-cattle-register-write']
   }
   const access = {
-    species: 'cattle',
+    species: 'sheep',
     scope: 'app',
     app: 'register',
     minLevel: 'read'
@@ -81,7 +81,7 @@ test('hasModuleAccess allows the back-office role across all modules', () => {
   const result = hasModuleAccess(user, access)
 
   // Assert
-  expect(result).toBe(true)
+  expect(result).toBe(false)
 })
 
 test('getAccessibleModulesForHub filters by portal and module permissions', () => {
