@@ -2,28 +2,20 @@
   "entra": {
     "bcms_user": [
       "lis-role-back-office",
-      "lis-role-caseworker",
       "lis-role-cattle-write",
       "lis-role-cattle-register-write",
-      "lis-role-sheep-write",
-      "lis-role-sheep-register-write"
+      "lis-role-cattle-home-write",
+      "lis-role-cattle-death-write",
+      "lis-role-cattle-move-write"
     ],
-    "bcms_supervisor": [
+    "test_nor_issuer": [
       "lis-role-back-office",
-      "lis-role-caseworker-super",
       "lis-role-cattle-write",
       "lis-role-cattle-register-write",
-      "lis-role-sheep-write",
-      "lis-role-sheep-register-write"
-    ],
-    "bcms_admin": [
-      "lis-role-back-office",
-      "lis-role-caseworker-super",
-      "lis-role-passport-approver",
-      "lis-role-cattle-write",
-      "lis-role-cattle-register-write",
-      "lis-role-sheep-write",
-      "lis-role-sheep-register-write"
+      "lis-role-cattle-home-write",
+      "lis-role-cattle-death-write",
+      "lis-role-cattle-move-write",
+      "lis-role-nor-issuer"
     ]
   },
   "profile": {

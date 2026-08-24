@@ -130,22 +130,24 @@ test('Entra roles are translated and expanded to permissions', () => {
   expect(authorization.roles).toEqual([
     'lis-role-reader',
     'lis-role-back-office',
-    'lis-role-caseworker',
     'lis-role-cattle-write',
     'lis-role-cattle-register-write',
-    'lis-role-sheep-write',
-    'lis-role-sheep-register-write'
+    'lis-role-cattle-home-write',
+    'lis-role-cattle-death-write',
+    'lis-role-cattle-move-write'
   ])
   expect(authorization.permissions).toEqual([
     'lis-perm-back-office',
     'lis-perm-cattle-read',
-    'lis-perm-cattle-register-write',
-    'lis-perm-sheep-read',
     'lis-perm-cattle-write',
     'lis-perm-cattle-register-read',
-    'lis-perm-sheep-write',
-    'lis-perm-sheep-register-read',
-    'lis-perm-sheep-register-write'
+    'lis-perm-cattle-register-write',
+    'lis-perm-cattle-home-read',
+    'lis-perm-cattle-home-write',
+    'lis-perm-cattle-death-read',
+    'lis-perm-cattle-death-write',
+    'lis-perm-cattle-move-read',
+    'lis-perm-cattle-move-write'
   ])
 })
 
