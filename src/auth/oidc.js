@@ -99,6 +99,14 @@ function createCodeExchanger({
   }
 }
 
+function resolveScope(configuredScope) {
+  const requestedScopes = (configuredScope ?? 'openid').split(' ')
+
+  return requestedScopes.includes('openid')
+    ? requestedScopes.join(' ')
+    : ['openid', ...requestedScopes].join(' ')
+}
+
 function addAuthorizationParameters(
   authorizationUrl,
   { providerConfig, redirectUri, authFlow }
@@ -106,7 +114,7 @@ function addAuthorizationParameters(
   const parameters = {
     client_id: providerConfig.clientId,
     response_type: 'code',
-    scope: providerConfig.scope ?? 'openid',
+    scope: resolveScope(providerConfig.scope),
     redirect_uri: redirectUri,
     state: authFlow.state,
     nonce: authFlow.nonce,

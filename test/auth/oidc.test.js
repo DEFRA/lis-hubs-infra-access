@@ -153,6 +153,31 @@ test('requests the provider-configured scope when one is set', async () => {
   )
 })
 
+test('always includes the openid scope even if the provider config omits it', async () => {
+  // Arrange
+  mockDiscovery()
+  const request = createRequest()
+  const client = createClient({
+    getProviderConfig: () => ({ ...providerConfig, scope: 'email profile' })
+  })
+
+  // Act
+  let authorizationUrl, error
+  try {
+    authorizationUrl = new URL(
+      await client.buildAuthorizationUrl(request, 'entra')
+    )
+  } catch (e) {
+    error = e
+  }
+
+  // Assert
+  expect(error).not.toBeDefined()
+  expect(authorizationUrl.searchParams.get('scope')).toEqual(
+    'openid email profile'
+  )
+})
+
 test('omits provider-specific parameters when no service id is configured', async () => {
   const fetch = mockDiscovery()
   const client = createClient({
