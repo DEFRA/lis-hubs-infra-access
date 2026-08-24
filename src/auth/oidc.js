@@ -106,7 +106,7 @@ function addAuthorizationParameters(
   const parameters = {
     client_id: providerConfig.clientId,
     response_type: 'code',
-    scope: 'openid',
+    scope: providerConfig.scope ?? 'openid',
     redirect_uri: redirectUri,
     state: authFlow.state,
     nonce: authFlow.nonce,
