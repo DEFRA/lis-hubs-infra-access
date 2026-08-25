@@ -1,6 +1,6 @@
 import Wreck from '@hapi/wreck'
 import { requestContext } from '@defra/lis-hubs-infra-core'
-import { statusCodes } from './status-codes.js'
+import { statusCodes } from './constants/status-codes.js'
 
 /**
  * @typedef {object} UserDetails

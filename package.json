@@ -8,7 +8,7 @@
     "url": "https://github.com/DEFRA/lis-hubs-infra-access.git"
   },
   "exports": {
-    ".": "./src/module-access.js",
+    ".": "./src/module-access/index.js",
     "./auth": "./src/auth.js",
     "./ish-client": "./src/identity-service-helper-client.js"
   },

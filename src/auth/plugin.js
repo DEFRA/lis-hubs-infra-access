@@ -7,9 +7,9 @@ import {
   getHubJwtCookieOptions,
   getReturnUrlFromRequest,
   issueHubJwt
-} from './tokens.js'
-import { getAuthorizedSpecies } from '../module-access.js'
-import { hydrateAuthorization } from '../authorization.js'
+} from './tokens/index.js'
+import { getAuthorizedSpecies } from '../module-access/index.js'
+import { hydrateAuthorization } from '../authorization/index.js'
 
 const ServiceUnavailable = 503
 

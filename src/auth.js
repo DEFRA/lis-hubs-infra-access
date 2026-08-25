@@ -34,18 +34,17 @@ export {
   sanitizeReturnUrl,
   verifyHubJwt,
   verifyHubServiceJwt
-} from './auth/tokens.js'
+} from './auth/tokens/index.js'
 
 export { createProfileService } from './profile-service.js'
 export { createHoldingService } from './holding-service.js'
 export {
   AUTHORIZATION_VERSION,
   demandPermission,
-  demandRole,
   hasPermission,
-  hasRole,
   hydrateAuthorization,
+  PERMISSIONS,
   resolveAuthorization
-} from './authorization.js'
+} from './authorization/index.js'
 
-export { createModuleAccessGuard } from './module-access.js'
+export { createModuleAccessGuard } from './module-access/index.js'

@@ -2,6 +2,35 @@
   "lis-role-reader": {
     "permissions": []
   },
+  "lis-role-bcms-user": {
+    "extends": [
+      "lis-role-back-office",
+      "lis-role-cattle-write",
+      "lis-role-cattle-register-write",
+      "lis-role-cattle-home-write",
+      "lis-role-cattle-death-write",
+      "lis-role-cattle-move-write"
+    ]
+  },
+  "lis-role-nor-issuer": {
+    "extends": ["lis-role-bcms-user"],
+    "permissions": ["lis-perm-cattle-nor-read", "lis-perm-cattle-nor-write"]
+  },
+  "lis-role-keeper": {
+    "extends": [
+      "lis-role-front-office",
+      "lis-role-cattle-read",
+      "lis-role-cattle-register-write",
+      "lis-role-cattle-home-write",
+      "lis-role-cattle-death-write",
+      "lis-role-cattle-move-write",
+      "lis-role-sheep-read",
+      "lis-role-sheep-register-write",
+      "lis-role-sheep-home-write",
+      "lis-role-sheep-death-write",
+      "lis-role-sheep-move-write"
+    ]
+  },
 
   "lis-role-caseworker": {
     "permissions": [
@@ -151,15 +180,10 @@
       "lis-perm-cattle-move-admin"
     ]
   },
-
   "lis-role-front-office": {
     "permissions": ["lis-perm-front-office"]
   },
   "lis-role-back-office": {
     "permissions": ["lis-perm-back-office"]
-  },
-
-  "lis-role-nor-issuer": {
-    "permissions": ["lis-perm-cattle-nor-read", "lis-perm-cattle-nor-write"]
   }
 }

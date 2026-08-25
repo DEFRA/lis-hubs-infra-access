@@ -1,0 +1,10 @@
+{
+  "entra": {
+    "bcms_user": "lis-role-bcms-user",
+    "test_nor_issuer": "lis-role-nor-issuer"
+  },
+  "profile": {
+    "livestockowner": "lis-role-keeper",
+    "cphholder": "lis-role-keeper"
+  }
+}
