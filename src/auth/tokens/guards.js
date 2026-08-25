@@ -129,11 +129,8 @@ function hydrateHubServiceActor(request, hubServiceJwtPayload) {
     email: hubServiceJwtPayload.actorEmail,
     firstName: hubServiceJwtPayload.actorFirstName,
     lastName: hubServiceJwtPayload.actorLastName,
-    roles: Array.isArray(hubServiceJwtPayload.actorRoles)
-      ? hubServiceJwtPayload.actorRoles
-      : [],
-    roleAssignments: Array.isArray(hubServiceJwtPayload.actorRoleAssignments)
-      ? hubServiceJwtPayload.actorRoleAssignments
+    statements: Array.isArray(hubServiceJwtPayload.actorStatements)
+      ? hubServiceJwtPayload.actorStatements
       : []
   })
 }

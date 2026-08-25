@@ -2,16 +2,10 @@ import { expect, test } from 'vitest'
 
 import { hasPermission, hasRole } from '../../src/authorization/checks.js'
 
-test('CPH-scoped permission demands use scoped role assignments', () => {
+test('CPH-scoped statements match only their own CPH', () => {
   // Arrange
   const authorization = {
-    roles: ['lis-role-reader'],
-    roleAssignments: [
-      {
-        role: 'lis-role-cattle-read',
-        cph: '10/081/1234'
-      }
-    ]
+    statements: [{ role: 'lis-role-cattle-read', cphs: ['10/081/1234'] }]
   }
 
   // Act
@@ -29,11 +23,33 @@ test('CPH-scoped permission demands use scoped role assignments', () => {
   expect(mismatchedCphResult).toBe(false)
 })
 
+test('global statements match regardless of the CPH asked about', () => {
+  // Arrange
+  const authorization = {
+    statements: [{ role: 'lis-role-cattle-read', cphs: '*' }]
+  }
+
+  // Act
+  const withCphResult = hasPermission(authorization, {
+    permission: 'lis-perm-cattle-read',
+    cph: '10/081/1234'
+  })
+  const withoutCphResult = hasPermission(authorization, {
+    permission: 'lis-perm-cattle-read'
+  })
+
+  // Assert
+  expect(withCphResult).toBe(true)
+  expect(withoutCphResult).toBe(true)
+})
+
 test('does not grant an unknown role or permission', () => {
   // Arrange
   const authorization = {
-    roles: ['lis-role-reader'],
-    roleAssignments: [{ role: 'lis-role-cattle-read', cph: '10/081/1234' }]
+    statements: [
+      { role: 'lis-role-reader', cphs: '*' },
+      { role: 'lis-role-cattle-read', cphs: ['10/081/1234'] }
+    ]
   }
 
   // Act
@@ -50,7 +66,7 @@ test('does not grant an unknown role or permission', () => {
 test('does not grant a scoped role for a missing or different CPH', () => {
   // Arrange
   const authorization = {
-    roleAssignments: [{ role: 'lis-role-cattle-read', cph: '10/081/1234' }]
+    statements: [{ role: 'lis-role-cattle-read', cphs: ['10/081/1234'] }]
   }
 
   // Act

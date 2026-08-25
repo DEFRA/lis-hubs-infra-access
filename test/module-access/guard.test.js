@@ -55,7 +55,13 @@ test('createModuleAccessGuard allows authorised requests through', () => {
     path: '/calf',
     app: {
       hubAuth: {
-        permissions: ['lis-perm-cattle-register-write']
+        statements: [
+          {
+            role: 'test-role',
+            cphs: '*',
+            permissions: ['lis-perm-cattle-register-write']
+          }
+        ]
       }
     }
   }
@@ -85,7 +91,13 @@ test('createModuleAccessGuard blocks unauthorised requests with 403', () => {
     path: '/calf',
     app: {
       hubAuth: {
-        permissions: ['lis-perm-cattle-read']
+        statements: [
+          {
+            role: 'test-role',
+            cphs: '*',
+            permissions: ['lis-perm-cattle-read']
+          }
+        ]
       }
     }
   }

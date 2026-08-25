@@ -6,7 +6,7 @@ import { hasPermission, hasRole } from '../../src/authorization/checks.js'
 test('permissions are rehydrated locally from LIS roles', () => {
   // Arrange
   const authorization = hydrateAuthorization({
-    roles: ['lis-role-caseworker']
+    statements: [{ role: 'lis-role-caseworker', cphs: '*' }]
   })
 
   // Act
@@ -22,13 +22,34 @@ test('permissions are rehydrated locally from LIS roles', () => {
   expect(hasCaseworkerRole).toBe(true)
 })
 
-test('rejects unknown roles and malformed authorization input', () => {
+test('attaches a permissions array to each statement', () => {
   // Arrange
   const options = {
-    roles: ['lis-role-caseworker', 'unknown-role', null, 'lis-role-caseworker'],
-    roleAssignments: [
-      { role: 'lis-role-cattle-read', cph: '10/081/1234' },
-      { role: 'unknown-role', cph: '10/081/1234' },
+    statements: [{ role: 'lis-role-cattle-write', cphs: ['10/081/1234'] }]
+  }
+
+  // Act
+  const authorization = hydrateAuthorization(options)
+
+  // Assert
+  expect(authorization.statements).toEqual([
+    {
+      role: 'lis-role-cattle-write',
+      cphs: ['10/081/1234'],
+      permissions: ['lis-perm-cattle-read', 'lis-perm-cattle-write']
+    }
+  ])
+})
+
+test('rejects unknown roles and malformed statements', () => {
+  // Arrange
+  const options = {
+    statements: [
+      { role: 'lis-role-caseworker', cphs: '*' },
+      { role: 'unknown-role', cphs: '*' },
+      { role: 'lis-role-cattle-read', cphs: ['10/081/1234'] },
+      { role: 'unknown-role', cphs: ['10/081/1234'] },
+      { role: 'lis-role-cattle-read', cphs: [] },
       { role: 'lis-role-cattle-read' },
       null
     ]
@@ -38,24 +59,41 @@ test('rejects unknown roles and malformed authorization input', () => {
   const authorization = hydrateAuthorization(options)
 
   // Assert
-  expect(authorization.roles).toEqual(['lis-role-caseworker'])
-  expect(authorization.roleAssignments).toEqual([
-    { role: 'lis-role-cattle-read', cph: '10/081/1234' }
+  expect(authorization.statements).toEqual([
+    {
+      role: 'lis-role-caseworker',
+      cphs: '*',
+      permissions: [
+        'lis-perm-cattle-read',
+        'lis-perm-cattle-register-write',
+        'lis-perm-sheep-read'
+      ]
+    },
+    {
+      role: 'lis-role-cattle-read',
+      cphs: ['10/081/1234'],
+      permissions: ['lis-perm-cattle-read']
+    }
   ])
-  expect(
-    authorization.permissionAssignments.some(
-      ({ permission }) => permission === 'lis-perm-cattle-read'
-    )
-  ).toBe(true)
 })
 
-test('does not trust supplied permissions without a valid role', () => {
+test('uses safe defaults for a non-array statements value', () => {
+  // Arrange
+  const authorization = hydrateAuthorization({ statements: 'not-an-array' })
+
+  // Assert
+  expect(authorization.statements).toEqual([])
+})
+
+test('does not trust an injected permissions array without a valid role', () => {
   // Arrange
   const authorization = hydrateAuthorization({
-    roles: ['unknown-role'],
-    permissions: ['lis-perm-back-office'],
-    permissionAssignments: [
-      { permission: 'lis-perm-cattle-write', cph: '10/081/1234' }
+    statements: [
+      {
+        role: 'unknown-role',
+        cphs: '*',
+        permissions: ['lis-perm-back-office']
+      }
     ]
   })
 
@@ -65,7 +103,6 @@ test('does not trust supplied permissions without a valid role', () => {
   })
 
   // Assert
-  expect(authorization.permissions).toEqual([])
-  expect(authorization.permissionAssignments).toEqual([])
+  expect(authorization.statements).toEqual([])
   expect(hasBackOfficePermission).toBe(false)
 })

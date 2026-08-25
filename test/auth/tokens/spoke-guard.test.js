@@ -45,8 +45,7 @@ test('createSpokeGuard rehydrates permissions from hub-service JWT roles (hubOri
         email: 'test.user@example.com',
         firstName: 'Test',
         lastName: 'User',
-        roles: ['lis-role-caseworker'],
-        permissions: ['lis-perm-front-office', 'lis-perm-cattle-read']
+        statements: [{ role: 'lis-role-caseworker', cphs: '*' }]
       }
     },
     jwtConfig
@@ -86,14 +85,17 @@ test('createSpokeGuard rehydrates permissions from hub-service JWT roles (hubOri
     firstName: 'Test',
     lastName: 'User',
     authzVersion: 1,
-    roles: ['lis-role-caseworker'],
-    permissions: [
-      'lis-perm-cattle-read',
-      'lis-perm-cattle-register-write',
-      'lis-perm-sheep-read'
-    ],
-    roleAssignments: [],
-    permissionAssignments: []
+    statements: [
+      {
+        role: 'lis-role-caseworker',
+        cphs: '*',
+        permissions: [
+          'lis-perm-cattle-read',
+          'lis-perm-cattle-register-write',
+          'lis-perm-sheep-read'
+        ]
+      }
+    ]
   })
 })
 
@@ -121,8 +123,7 @@ test('createSpokeGuard rehydrates permissions from hub-service JWT roles (single
         email: 'test.user@example.com',
         firstName: 'Test',
         lastName: 'User',
-        roles: ['lis-role-caseworker'],
-        permissions: ['lis-perm-front-office', 'lis-perm-cattle-read']
+        statements: [{ role: 'lis-role-caseworker', cphs: '*' }]
       }
     },
     jwtConfig
@@ -160,14 +161,17 @@ test('createSpokeGuard rehydrates permissions from hub-service JWT roles (single
     firstName: 'Test',
     lastName: 'User',
     authzVersion: 1,
-    roles: ['lis-role-caseworker'],
-    permissions: [
-      'lis-perm-cattle-read',
-      'lis-perm-cattle-register-write',
-      'lis-perm-sheep-read'
-    ],
-    roleAssignments: [],
-    permissionAssignments: []
+    statements: [
+      {
+        role: 'lis-role-caseworker',
+        cphs: '*',
+        permissions: [
+          'lis-perm-cattle-read',
+          'lis-perm-cattle-register-write',
+          'lis-perm-sheep-read'
+        ]
+      }
+    ]
   })
 })
 
@@ -194,7 +198,10 @@ test('createSpokeGuard supports hub-service authentication on marked user-sessio
       user: {
         sub: 'test-user',
         email: 'test.user@example.com',
-        roles: ['lis-role-front-office', 'lis-role-cattle-read']
+        statements: [
+          { role: 'lis-role-front-office', cphs: '*' },
+          { role: 'lis-role-cattle-read', cphs: '*' }
+        ]
       }
     },
     jwtConfig
@@ -228,10 +235,9 @@ test('createSpokeGuard supports hub-service authentication on marked user-sessio
 
   expect(result).toBe(h.continue)
   expect(request.app.hubAuth.email).toBe('test.user@example.com')
-  expect(request.app.hubAuth.permissions).toEqual([
-    'lis-perm-front-office',
-    'lis-perm-cattle-read'
-  ])
+  expect(
+    request.app.hubAuth.statements.flatMap((statement) => statement.permissions)
+  ).toEqual(['lis-perm-front-office', 'lis-perm-cattle-read'])
 })
 
 test('createSpokeGuard supports hub-service authentication on marked user-session routes (single hubOrigin)', async () => {
@@ -258,7 +264,10 @@ test('createSpokeGuard supports hub-service authentication on marked user-sessio
       user: {
         sub: 'test-user',
         email: 'test.user@example.com',
-        roles: ['lis-role-front-office', 'lis-role-cattle-read']
+        statements: [
+          { role: 'lis-role-front-office', cphs: '*' },
+          { role: 'lis-role-cattle-read', cphs: '*' }
+        ]
       }
     },
     jwtConfig
@@ -290,10 +299,9 @@ test('createSpokeGuard supports hub-service authentication on marked user-sessio
 
   expect(result).toBe(h.continue)
   expect(request.app.hubAuth.email).toBe('test.user@example.com')
-  expect(request.app.hubAuth.permissions).toEqual([
-    'lis-perm-front-office',
-    'lis-perm-cattle-read'
-  ])
+  expect(
+    request.app.hubAuth.statements.flatMap((statement) => statement.permissions)
+  ).toEqual(['lis-perm-front-office', 'lis-perm-cattle-read'])
 })
 
 test('createSpokeGuard returns a hub-service guard for status spokes', () => {

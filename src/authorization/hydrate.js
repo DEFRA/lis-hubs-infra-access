@@ -1,32 +1,26 @@
 import { AUTHORIZATION_VERSION } from './constants.js'
-import { normalizeLisRoles, normalizeRoleAssignments } from './normalize.js'
-import {
-  resolvePermissionAssignments,
-  resolvePermissions
-} from './permissions.js'
+import { normalizeStatements } from './normalize.js'
 import { resolvedRoleDefinitions } from './roles-loader.js'
 
 /**
- * Rehydrates an authorization object with current role definitions and permissions.
- * Ensures the authorization structure is up-to-date with the current authorization version
- * and expands permissions from roles.
+ * Rehydrates an authorization object with current role definitions.
+ * Validates each statement's role and cphs, and attaches a permissions
+ * array to each one, expanded from the current roles.json.
  * @param {object} [authorization={}] - The authorization object to hydrate.
- * @param {string[]} [authorization.roles] - LIS roles to rehydrate.
- * @param {Array<{role: string, cph: string}>} [authorization.roleAssignments] - Role assignments to rehydrate.
- * @returns {object} Hydrated authorization object with expanded permissions and validated assignments.
+ * @param {Array<{role: string, cphs: '*'|string[]}>} [authorization.statements] - Statements to rehydrate.
+ * @returns {object} Hydrated authorization object with each statement carrying its permissions.
  */
 export function hydrateAuthorization(authorization = {}) {
-  const roles = normalizeLisRoles(authorization.roles)
-  const roleAssignments = normalizeRoleAssignments(
-    authorization.roleAssignments
-  ).filter((assignment) => resolvedRoleDefinitions.has(assignment.role))
+  const statements = normalizeStatements(authorization.statements).map(
+    (statement) => ({
+      ...statement,
+      permissions: [...(resolvedRoleDefinitions.get(statement.role) ?? [])]
+    })
+  )
 
   return {
     ...authorization,
     authzVersion: AUTHORIZATION_VERSION,
-    roles,
-    permissions: resolvePermissions(roles),
-    roleAssignments,
-    permissionAssignments: resolvePermissionAssignments(roleAssignments)
+    statements
   }
 }

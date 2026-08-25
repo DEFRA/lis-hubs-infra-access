@@ -90,7 +90,7 @@ test('permission demand denies a user without the required permission', () => {
   // Arrange
   const h = createToolkit()
   const request = {
-    app: { hubAuth: { roles: ['lis-role-reader'] } },
+    app: { hubAuth: { statements: [{ role: 'lis-role-reader', cphs: '*' }] } },
     params: { cph: '10/081/1234' }
   }
   const demand = demandPermission({
@@ -114,7 +114,7 @@ test('role demand denies a user with the role assigned to another CPH', () => {
   const request = {
     app: {
       hubAuth: {
-        roleAssignments: [{ role: 'lis-role-cattle-read', cph: '10/081/1234' }]
+        statements: [{ role: 'lis-role-cattle-read', cphs: ['10/081/1234'] }]
       }
     },
     params: { cph: '10/081/9999' }
@@ -138,7 +138,9 @@ test('permission and role demands continue when requirements are met', () => {
   // Arrange
   const h = createToolkit()
   const request = {
-    app: { hubAuth: { roles: ['lis-role-caseworker'] } }
+    app: {
+      hubAuth: { statements: [{ role: 'lis-role-caseworker', cphs: '*' }] }
+    }
   }
 
   // Act

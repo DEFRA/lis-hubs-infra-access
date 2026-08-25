@@ -1,18 +1,14 @@
 /** @import { ModuleAccess } from './module-access-resolution.js' */
+/** @import { User } from './statements.js' */
 import { ACCESS_LEVEL_RANKS, parsePermission } from './permission-parsing.js'
-
-/**
- * @typedef {object} User
- * @property {string[]} [permissions] - Array of LIS permission strings
- * @property {string[]} [roles] - Array of LIS role strings
- */
+import { getFlatPermissions } from './statements.js'
 
 /**
  * Checks whether a user has the required permissions to access a module.
  * Compares user permissions against module scope, species, app, and
  * minimum access level.
  *
- * @param {User} user - User object with permissions and roles
+ * @param {User} user - Hydrated authorization object
  * @param {ModuleAccess} moduleAccess - Module access requirements
  * @returns {boolean} True if user has sufficient access, false otherwise
  */
@@ -21,7 +17,7 @@ export function hasModuleAccess(user, moduleAccess) {
     return false
   }
 
-  const permissions = Array.isArray(user?.permissions) ? user.permissions : []
+  const permissions = getFlatPermissions(user)
   const requiredRank = ACCESS_LEVEL_RANKS[moduleAccess.minLevel] ?? 0
 
   return permissions.some((permission) => {

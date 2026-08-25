@@ -2,11 +2,13 @@ import { expect, test } from 'vitest'
 
 import { hasModuleAccess } from '../../src/module-access/access.js'
 
+function userWithPermissions(permissions) {
+  return { statements: [{ role: 'test-role', cphs: '*', permissions }] }
+}
+
 test('hasModuleAccess allows higher levels within the same scope', () => {
   // Arrange
-  const user = {
-    permissions: ['lis-perm-cattle-move-admin']
-  }
+  const user = userWithPermissions(['lis-perm-cattle-move-admin'])
   const access = {
     species: 'cattle',
     scope: 'app',
@@ -23,10 +25,7 @@ test('hasModuleAccess allows higher levels within the same scope', () => {
 
 test('hasModuleAccess denies a role without a matching module permission', () => {
   // Arrange
-  const user = {
-    roles: ['lis-role-back-office'],
-    permissions: ['lis-perm-cattle-register-write']
-  }
+  const user = userWithPermissions(['lis-perm-cattle-register-write'])
   const access = {
     species: 'sheep',
     scope: 'app',
@@ -63,10 +62,10 @@ test('denies malformed, insufficient and mismatched permissions', () => {
 
   // Act
   const results = invalidPermissions.map((permission) =>
-    hasModuleAccess({ permissions: [permission] }, access)
+    hasModuleAccess(userWithPermissions([permission]), access)
   )
   const noPermissionsResult = hasModuleAccess({}, access)
-  const emptyAccessResult = hasModuleAccess({ permissions: [] }, {})
+  const emptyAccessResult = hasModuleAccess(userWithPermissions([]), {})
 
   // Assert
   for (const result of results) {
@@ -78,7 +77,7 @@ test('denies malformed, insufficient and mismatched permissions', () => {
 
 test('supports user-scoped permissions', () => {
   // Arrange
-  const userScopedUser = { permissions: ['LIS-PERM-USER-WRITE'] }
+  const userScopedUser = userWithPermissions(['LIS-PERM-USER-WRITE'])
   const userScopedAccess = { scope: 'user', minLevel: 'read' }
 
   // Act

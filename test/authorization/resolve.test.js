@@ -12,10 +12,7 @@ test('unknown source roles receive only the default reader role', () => {
   // Assert
   expect(result).toEqual({
     authzVersion: 1,
-    roles: ['lis-role-reader'],
-    permissions: [],
-    roleAssignments: [],
-    permissionAssignments: [],
+    statements: [{ role: 'lis-role-reader', cphs: '*' }],
     holdings: []
   })
 })
@@ -33,15 +30,15 @@ test('preserves LIS roles already translated by the identity provider', () => {
   // Assert
   expect(result).toEqual({
     authzVersion: 1,
-    roles: ['lis-role-reader', 'lis-role-back-office'],
-    permissions: ['lis-perm-back-office'],
-    roleAssignments: [],
-    permissionAssignments: [],
+    statements: [
+      { role: 'lis-role-reader', cphs: '*' },
+      { role: 'lis-role-back-office', cphs: '*' }
+    ],
     holdings: []
   })
 })
 
-test('Entra roles are translated to a single bundled internal role and expanded to permissions', () => {
+test('Entra roles are translated to a single bundled internal role', () => {
   // Arrange
   const options = {
     source: 'entra',
@@ -52,19 +49,9 @@ test('Entra roles are translated to a single bundled internal role and expanded 
   const authorization = resolveAuthorization(options)
 
   // Assert
-  expect(authorization.roles).toEqual(['lis-role-reader', 'lis-role-bcms-user'])
-  expect(authorization.permissions).toEqual([
-    'lis-perm-back-office',
-    'lis-perm-cattle-read',
-    'lis-perm-cattle-write',
-    'lis-perm-cattle-register-read',
-    'lis-perm-cattle-register-write',
-    'lis-perm-cattle-home-read',
-    'lis-perm-cattle-home-write',
-    'lis-perm-cattle-death-read',
-    'lis-perm-cattle-death-write',
-    'lis-perm-cattle-move-read',
-    'lis-perm-cattle-move-write'
+  expect(authorization.statements).toEqual([
+    { role: 'lis-role-reader', cphs: '*' },
+    { role: 'lis-role-bcms-user', cphs: '*' }
   ])
 })
 
@@ -79,18 +66,30 @@ test('profile role assignments retain their CPH scope', () => {
   const authorization = resolveAuthorization(options)
 
   // Assert
-  expect(authorization.roleAssignments).toEqual([
-    { role: 'lis-role-keeper', cph: '10/081/1234' }
+  expect(authorization.statements).toEqual([
+    { role: 'lis-role-reader', cphs: '*' },
+    { role: 'lis-role-keeper', cphs: ['10/081/1234'] }
   ])
-  expect(authorization.roles).toEqual(['lis-role-reader'])
-  expect(authorization.permissions).toEqual([])
-  expect(
-    authorization.permissionAssignments.some(
-      (assignment) =>
-        assignment.permission === 'lis-perm-sheep-read' &&
-        assignment.cph === '10/081/1234'
-    )
-  ).toBe(true)
+})
+
+test('groups multiple CPHs for the same role into one statement', () => {
+  // Arrange
+  const options = {
+    source: 'profile',
+    roleAssignments: [
+      { role: 'cphholder', cph: '10/081/1234' },
+      { role: 'cphholder', cph: '10/081/5678' }
+    ]
+  }
+
+  // Act
+  const authorization = resolveAuthorization(options)
+
+  // Assert
+  expect(authorization.statements).toEqual([
+    { role: 'lis-role-reader', cphs: '*' },
+    { role: 'lis-role-keeper', cphs: ['10/081/1234', '10/081/5678'] }
+  ])
 })
 
 test('uses safe defaults for non-array roles, assignments and holdings', () => {
@@ -106,9 +105,6 @@ test('uses safe defaults for non-array roles, assignments and holdings', () => {
   const resolved = resolveAuthorization(options)
 
   // Assert
-  expect(resolved.roles).toEqual(['lis-role-reader'])
-  expect(resolved.permissions).toEqual([])
-  expect(resolved.roleAssignments).toEqual([])
-  expect(resolved.permissionAssignments).toEqual([])
+  expect(resolved.statements).toEqual([{ role: 'lis-role-reader', cphs: '*' }])
   expect(resolved.holdings).toEqual([])
 })

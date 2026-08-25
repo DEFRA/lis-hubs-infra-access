@@ -43,10 +43,7 @@ export async function issueHubJwt(
     email: user.email ?? '',
     firstName: user.firstName ?? '',
     lastName: user.lastName ?? '',
-    roles: Array.isArray(user.roles) ? user.roles : [],
-    roleAssignments: Array.isArray(user.roleAssignments)
-      ? user.roleAssignments
-      : [],
+    statements: Array.isArray(user.statements) ? user.statements : [],
     holdings: Array.isArray(user.holdings) ? user.holdings : [],
     authzVersion: AUTHORIZATION_VERSION,
     serviceId: user.serviceId ?? '',
@@ -78,10 +75,7 @@ export async function createSpokeAuthToken(
     actorEmail: user?.email ?? '',
     actorFirstName: user?.firstName ?? '',
     actorLastName: user?.lastName ?? '',
-    actorRoles: Array.isArray(user?.roles) ? user.roles : [],
-    actorRoleAssignments: Array.isArray(user?.roleAssignments)
-      ? user.roleAssignments
-      : [],
+    actorStatements: Array.isArray(user?.statements) ? user.statements : [],
     authzVersion: AUTHORIZATION_VERSION
   })
     .setProtectedHeader({ alg: 'HS256' })

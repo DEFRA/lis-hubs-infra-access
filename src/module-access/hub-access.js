@@ -1,20 +1,21 @@
-/** @import { User } from './access.js' */
+/** @import { User } from './statements.js' */
 /** @import { Module } from './module-access-resolution.js' */
 import { PERMISSION_PREFIX } from './permission-parsing.js'
 import { hasModuleAccess } from './access.js'
 import { resolveModuleAccess } from './module-access-resolution.js'
+import { getFlatPermissions } from './statements.js'
 
 /**
  * Checks if a user has portal-level access to a specific hub.
  * Requires a permission matching 'lis-perm-{hubId}'.
  *
- * @param {User} user - User object with permissions
+ * @param {User} user - Hydrated authorization object
  * @param {string} hubId - Hub identifier to check access for
  * @returns {boolean} True if user has hub portal access, false otherwise
  * @private
  */
 function hasPortalAccess(user, hubId) {
-  const permissions = Array.isArray(user?.permissions) ? user.permissions : []
+  const permissions = getFlatPermissions(user)
 
   return permissions.some(
     (permission) =>
@@ -28,7 +29,7 @@ function hasPortalAccess(user, hubId) {
  *
  * @param {object} options - Filter options
  * @param {string} options.hubId - Hub identifier (e.g., 'front-office', 'back-office')
- * @param {User} options.user - User object with permissions and roles
+ * @param {User} options.user - Hydrated authorization object
  * @param {Module[]} [options.modules=[]] - Array of modules to filter
  * @param {string} [options.taxonomy] - Optional taxonomy filter
  * @returns {Module[]} Array of modules the user can access

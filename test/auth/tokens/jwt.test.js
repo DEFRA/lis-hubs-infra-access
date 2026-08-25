@@ -27,7 +27,7 @@ test('issueHubJwt carries holdings into the spoke session', async () => {
   const token = await issueHubJwt(
     {
       sub: 'holding-user',
-      roles: ['lis-role-front-office'],
+      statements: [{ role: 'lis-role-front-office', cphs: '*' }],
       holdings
     },
     jwtConfig
@@ -44,8 +44,7 @@ test('issueHubJwt preserves optional authorization and assurance claims', async 
       email: 'user@example.com',
       firstName: 'Test',
       lastName: 'User',
-      roles: ['lis-role-caseworker'],
-      roleAssignments: [{ role: 'lis-role-caseworker', scope: 'cattle' }],
+      statements: [{ role: 'lis-role-caseworker', cphs: ['10/081/1234'] }],
       holdings: [],
       serviceId: 'livestock-hub',
       loa: '2',
@@ -55,8 +54,8 @@ test('issueHubJwt preserves optional authorization and assurance claims', async 
   )
   const payload = await verifyHubJwt(token, jwtConfig)
 
-  expect(payload.roleAssignments).toEqual([
-    { role: 'lis-role-caseworker', scope: 'cattle' }
+  expect(payload.statements).toEqual([
+    { role: 'lis-role-caseworker', cphs: ['10/081/1234'] }
   ])
   expect(payload.serviceId).toBe('livestock-hub')
   expect(payload.loa).toBe('2')
@@ -72,8 +71,7 @@ test('createSpokeAuthToken returns a bearer token value', async () => {
       email: 'test.user@example.com',
       firstName: 'Test',
       lastName: 'User',
-      roles: ['lis-role-caseworker'],
-      permissions: ['lis-perm-front-office', 'lis-perm-cattle-read']
+      statements: [{ role: 'lis-role-caseworker', cphs: '*' }]
     }
   }
 
@@ -91,8 +89,7 @@ test('createSpokeAuthToken signs a JWT with the expected hub service claims', as
       email: 'test.user@example.com',
       firstName: 'Test',
       lastName: 'User',
-      roles: ['lis-role-caseworker'],
-      permissions: ['lis-perm-front-office', 'lis-perm-cattle-read']
+      statements: [{ role: 'lis-role-caseworker', cphs: '*' }]
     }
   }
 
@@ -104,7 +101,9 @@ test('createSpokeAuthToken signs a JWT with the expected hub service claims', as
   expect(payload.taxonomy).toBe('status')
   expect(payload.spokeId).toBe('cattle-status')
   expect(payload.actorEmail).toBe('test.user@example.com')
-  expect(payload.actorRoles).toEqual(['lis-role-caseworker'])
+  expect(payload.actorStatements).toEqual([
+    { role: 'lis-role-caseworker', cphs: '*' }
+  ])
   expect('actorPermissions' in payload).toBe(false)
 })
 
@@ -154,8 +153,7 @@ test('getHubServiceJwtPayloadFromRequest accepts bearer tokens for fetch-based r
         email: 'test.user@example.com',
         firstName: 'Test',
         lastName: 'User',
-        roles: ['lis-role-caseworker'],
-        permissions: ['lis-perm-front-office', 'lis-perm-cattle-read']
+        statements: [{ role: 'lis-role-caseworker', cphs: '*' }]
       }
     },
     jwtConfig

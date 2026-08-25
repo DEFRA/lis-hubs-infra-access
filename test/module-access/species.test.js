@@ -5,9 +5,15 @@ import { getAuthorizedSpecies } from '../../src/module-access/species.js'
 test('supports species codes and ignores malformed permissions', () => {
   // Arrange
   const mixedSpeciesUser = {
-    permissions: ['lis-perm-ctt-read', 'lis-perm-sheep-move-write']
+    statements: [
+      {
+        role: 'test-role',
+        cphs: '*',
+        permissions: ['lis-perm-ctt-read', 'lis-perm-sheep-move-write']
+      }
+    ]
   }
-  const invalidUser = { permissions: 'invalid' }
+  const invalidUser = { statements: 'invalid' }
 
   // Act
   const authorizedSpecies = getAuthorizedSpecies(mixedSpeciesUser)

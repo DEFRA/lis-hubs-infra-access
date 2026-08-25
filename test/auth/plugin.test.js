@@ -98,7 +98,7 @@ test('pre-auth middleware hydrates the session and authorized species', () => {
   const values = new Map([
     [
       'hub-auth-session',
-      { roles: ['lis-role-caseworker'], permissions: ['untrusted'] }
+      { statements: [{ role: 'lis-role-caseworker', cphs: '*' }] }
     ]
   ])
   const request = createRequest(values)
@@ -106,7 +106,11 @@ test('pre-auth middleware hydrates the session and authorized species', () => {
   const { preAuth } = registerPlugin()
 
   assert.equal(preAuth(request, h), h.continue)
-  assert.ok(request.app.hubAuth.permissions.includes('lis-perm-cattle-read'))
+  assert.ok(
+    request.app.hubAuth.statements.some((statement) =>
+      statement.permissions.includes('lis-perm-cattle-read')
+    )
+  )
   assert.ok(request.app.authorizedSpecies.some(({ id }) => id === 'cattle'))
 })
 
@@ -150,7 +154,9 @@ test('login returns 503 when the identity provider is unavailable', async () => 
 
 test('callback enriches and stores the session before setting its JWT', async () => {
   const authSession = { sub: 'user-1', email: 'user@example.com' }
-  const resolveAuthSession = vi.fn(async () => ({ roles: ['lis-role-reader'] }))
+  const resolveAuthSession = vi.fn(async () => ({
+    statements: [{ role: 'lis-role-reader', cphs: '*' }]
+  }))
   const { routes } = registerPlugin({
     completeAuthorizationCodeGrant: async () => ({
       user: { sub: 'user-1' },
@@ -169,7 +175,7 @@ test('callback enriches and stores the session before setting its JWT', async ()
   assert.equal(h.result.state.mock.calls[0][0], 'hub-jwt')
   assert.deepEqual(request.yar.get('hub-auth-session'), {
     ...authSession,
-    roles: ['lis-role-reader']
+    statements: [{ role: 'lis-role-reader', cphs: '*' }]
   })
 })
 

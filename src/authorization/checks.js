@@ -1,4 +1,18 @@
+import { GLOBAL_CPH_SCOPE } from './constants.js'
 import { hydrateAuthorization } from './hydrate.js'
+
+/**
+ * @param {'*'|string[]} cphs
+ * @param {string} [cph]
+ * @returns {boolean}
+ */
+function matchesCphScope(cphs, cph) {
+  if (cphs === GLOBAL_CPH_SCOPE) {
+    return true
+  }
+
+  return typeof cph === 'string' && cphs.includes(cph)
+}
 
 /**
  * Checks whether the authorization grants a specific role, optionally scoped to a CPH.
@@ -11,12 +25,9 @@ import { hydrateAuthorization } from './hydrate.js'
 export function hasRole(authorization, { role, cph } = {}) {
   const hydrated = hydrateAuthorization(authorization)
 
-  if (!cph && hydrated.roles.includes(role)) {
-    return true
-  }
-
-  return hydrated.roleAssignments.some(
-    (assignment) => assignment.role === role && assignment.cph === cph
+  return hydrated.statements.some(
+    (statement) =>
+      statement.role === role && matchesCphScope(statement.cphs, cph)
   )
 }
 
@@ -31,12 +42,9 @@ export function hasRole(authorization, { role, cph } = {}) {
 export function hasPermission(authorization, { permission, cph } = {}) {
   const hydrated = hydrateAuthorization(authorization)
 
-  if (hydrated.permissions.includes(permission)) {
-    return true
-  }
-
-  return hydrated.permissionAssignments.some(
-    (assignment) =>
-      assignment.permission === permission && assignment.cph === cph
+  return hydrated.statements.some(
+    (statement) =>
+      statement.permissions.includes(permission) &&
+      matchesCphScope(statement.cphs, cph)
   )
 }
