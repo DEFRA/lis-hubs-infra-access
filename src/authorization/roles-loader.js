@@ -1,4 +1,8 @@
-import roleDefinitions from '../roles.json' with { type: 'json' }
+/** @import { Permission } from '../constants/permissions.js' */
+import roleDefinitions from '../constants/roles.json' with { type: 'json' }
+import { PERMISSIONS } from '../constants/permissions.js'
+
+const knownPermissions = new Set(Object.values(PERMISSIONS))
 
 /**
  * Recursively expands a role's own permissions plus the permissions of
@@ -7,7 +11,7 @@ import roleDefinitions from '../roles.json' with { type: 'json' }
  *
  * @param {string} role
  * @param {string[]} path - roles visited so far, for cycle detection
- * @returns {Set<string>}
+ * @returns {Set<Permission>}
  */
 function resolveRolePermissions(role, path = []) {
   if (path.includes(role)) {
@@ -23,6 +27,15 @@ function resolveRolePermissions(role, path = []) {
   }
 
   const ownPermissions = definition.permissions ?? []
+
+  for (const permission of ownPermissions) {
+    if (!knownPermissions.has(permission)) {
+      throw new Error(
+        `Role '${role}' grants a permission not registered in PERMISSIONS: ${permission}`
+      )
+    }
+  }
+
   const extendedPermissions = (definition.extends ?? []).flatMap(
     (extendedRole) => [...resolveRolePermissions(extendedRole, [...path, role])]
   )
@@ -35,7 +48,7 @@ function resolveRolePermissions(role, path = []) {
  * permissions list, so downstream lookups are a single map access rather
  * than a recursive walk on every request.
  *
- * @type {Map<string, Set<string>>}
+ * @type {Map<string, Set<Permission>>}
  */
 export const resolvedRoleDefinitions = new Map()
 

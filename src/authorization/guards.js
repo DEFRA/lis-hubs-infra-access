@@ -1,11 +1,12 @@
-import { statusCodes } from '../status-codes.js'
+/** @import { Permission } from '../constants/permissions.js' */
+import { statusCodes } from '../constants/status-codes.js'
 import { hasPermission } from './checks.js'
 
 /**
  * Creates a Hapi pre-handler that demands a specific permission.
  * Returns a 403 response if the permission is not granted.
  * @param {object} [params={}] - Permission demand parameters.
- * @param {string} [params.permission] - The LIS permission to demand.
+ * @param {Permission} [params.permission] - The LIS permission to demand.
  * @param {Function} [params.getCph] - Optional function to extract CPH scope from the request.
  * @returns {Function} A Hapi pre-handler function that enforces the permission.
  * @throws {Error} If no permission is provided.

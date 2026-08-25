@@ -43,6 +43,7 @@ export {
   demandPermission,
   hasPermission,
   hydrateAuthorization,
+  PERMISSIONS,
   resolveAuthorization
 } from './authorization/index.js'
 

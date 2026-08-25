@@ -1,6 +1,6 @@
 /** @import { Request } from '@hapi/hapi' */
 import { hydrateAuthorization } from '../../authorization/index.js'
-import { statusCodes } from '../../status-codes.js'
+import { statusCodes } from '../../constants/status-codes.js'
 import { getSpokeAccessMode, getSpokeById } from './access-mode.js'
 import { HUB_SERVICE_SUBJECT } from './constants.js'
 import {

@@ -1,6 +1,6 @@
 /** @import { Module, ModuleAccess } from './module-access-resolution.js' */
 import { isPublicRequest } from '../auth/tokens/index.js'
-import { statusCodes } from '../status-codes.js'
+import { statusCodes } from '../constants/status-codes.js'
 import { hasModuleAccess } from './access.js'
 import { normalizeModuleAccess } from './module-access-resolution.js'
 

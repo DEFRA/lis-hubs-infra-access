@@ -1,4 +1,4 @@
-import roleMappings from '../role-mappings.json' with { type: 'json' }
+import roleMappings from '../constants/role-mappings.json' with { type: 'json' }
 import {
   AUTHORIZATION_VERSION,
   DEFAULT_ROLE,
