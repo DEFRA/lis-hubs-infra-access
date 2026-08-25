@@ -1,10 +1,11 @@
 /** @import { Permission } from '../constants/permissions.js' */
-import { statusCodes } from '../constants/status-codes.js'
+import Boom from '@hapi/boom'
 import { hasPermission } from './checks.js'
 
 /**
  * Creates a Hapi pre-handler that demands a specific permission.
- * Returns a 403 response if the permission is not granted.
+ * Returns a Boom 403 if the permission is not granted, so a host app's
+ * own onPreResponse error handling can render it consistently.
  * @param {object} [params={}] - Permission demand parameters.
  * @param {Permission} [params.permission] - The LIS permission to demand.
  * @param {Function} [params.getCph] - Optional function to extract CPH scope from the request.
@@ -23,9 +24,6 @@ export function demandPermission({ permission, getCph } = {}) {
       return h.continue
     }
 
-    return h
-      .response({ message: 'Permission denied' })
-      .code(statusCodes.forbidden)
-      .takeover()
+    return Boom.forbidden()
   }
 }

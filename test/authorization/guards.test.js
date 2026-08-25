@@ -3,24 +3,8 @@ import { expect, test } from 'vitest'
 import { demandPermission } from '../../src/authorization/guards.js'
 
 function createToolkit() {
-  const response = {
-    code(statusCode) {
-      response.statusCode = statusCode
-      return response
-    },
-    takeover() {
-      response.takenOver = true
-      return response
-    }
-  }
-
   return {
-    continue: Symbol('continue'),
-    response(payload) {
-      response.payload = payload
-      return response
-    },
-    result: response
+    continue: Symbol('continue')
   }
 }
 
@@ -75,10 +59,8 @@ test('permission demand denies a user without the required permission', () => {
   const result = demand(request, h)
 
   // Assert
-  expect(result).toBe(h.result)
-  expect(h.result.payload).toEqual({ message: 'Permission denied' })
-  expect(h.result.statusCode).toBe(403)
-  expect(h.result.takenOver).toBe(true)
+  expect(result.isBoom).toBe(true)
+  expect(result.output.statusCode).toBe(403)
 })
 
 test('permission demand denies a user with the permission granted for another CPH', () => {
@@ -107,10 +89,8 @@ test('permission demand denies a user with the permission granted for another CP
   const result = demand(request, h)
 
   // Assert
-  expect(result).toBe(h.result)
-  expect(h.result.payload).toEqual({ message: 'Permission denied' })
-  expect(h.result.statusCode).toBe(403)
-  expect(h.result.takenOver).toBe(true)
+  expect(result.isBoom).toBe(true)
+  expect(result.output.statusCode).toBe(403)
 })
 
 test('permission demand denies an unauthenticated request', () => {
@@ -123,9 +103,8 @@ test('permission demand denies an unauthenticated request', () => {
   const result = demand(request, h)
 
   // Assert
-  expect(result).toBe(h.result)
-  expect(h.result.payload).toEqual({ message: 'Permission denied' })
-  expect(h.result.statusCode).toBe(403)
+  expect(result.isBoom).toBe(true)
+  expect(result.output.statusCode).toBe(403)
 })
 
 test('permission demand continues when the requirement is met', () => {

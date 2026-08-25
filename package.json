@@ -44,10 +44,12 @@
   },
   "peerDependencies": {
     "eslint": "^9.0.0",
+    "@hapi/boom": "10.0.1",
     "@hapi/wreck": "18.1.2"
   },
   "devDependencies": {
     "@defra/lis-infra-eslint-config": "^0.6.0",
+    "@hapi/boom": "10.0.1",
     "@hapi/wreck": "18.1.2",
     "@vitest/coverage-istanbul": "^4.1.10",
     "audit-ci": "^7.1.0",

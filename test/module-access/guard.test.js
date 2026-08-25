@@ -18,22 +18,7 @@ function registerGuardHandler(guard) {
 
 function createToolkit() {
   return {
-    continue: Symbol('continue'),
-    response(payload) {
-      return {
-        code(statusCode) {
-          return {
-            takeover() {
-              return {
-                payload,
-                statusCode,
-                takeover: true
-              }
-            }
-          }
-        }
-      }
-    }
+    continue: Symbol('continue')
   }
 }
 
@@ -106,11 +91,8 @@ test('createModuleAccessGuard blocks unauthorised requests with 403', () => {
   const response = handler(request, h)
 
   // Assert
-  expect(response).toEqual({
-    payload: { message: 'Module access denied' },
-    statusCode: 403,
-    takeover: true
-  })
+  expect(response.isBoom).toBe(true)
+  expect(response.output.statusCode).toBe(403)
 })
 
 test('rejects a guard without resolvable module access', () => {
