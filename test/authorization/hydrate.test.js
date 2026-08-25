@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 
 import { hydrateAuthorization } from '../../src/authorization/hydrate.js'
-import { hasPermission, hasRole } from '../../src/authorization/checks.js'
+import { hasPermission } from '../../src/authorization/checks.js'
 
 test('permissions are rehydrated locally from LIS roles', () => {
   // Arrange
@@ -13,13 +13,9 @@ test('permissions are rehydrated locally from LIS roles', () => {
   const hasReadPermission = hasPermission(authorization, {
     permission: 'lis-perm-cattle-read'
   })
-  const hasCaseworkerRole = hasRole(authorization, {
-    role: 'lis-role-caseworker'
-  })
 
   // Assert
   expect(hasReadPermission).toBe(true)
-  expect(hasCaseworkerRole).toBe(true)
 })
 
 test('attaches a permissions array to each statement', () => {

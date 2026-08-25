@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { demandPermission, demandRole } from '../../src/authorization/guards.js'
+import { demandPermission } from '../../src/authorization/guards.js'
 
 function createToolkit() {
   const response = {
@@ -55,37 +55,6 @@ test('permission demand rejects missing permission configuration', () => {
   expect(invalidPermissionError?.message).toMatch(/requires a permission/)
 })
 
-test('role demand rejects missing role configuration', () => {
-  // Arrange
-  // Act
-  let noOptionsError
-  try {
-    demandRole()
-  } catch (e) {
-    noOptionsError = e
-  }
-  let emptyRoleError
-  try {
-    demandRole({ role: '' })
-  } catch (e) {
-    emptyRoleError = e
-  }
-  let invalidRoleError
-  try {
-    demandRole({ role: 123 })
-  } catch (e) {
-    invalidRoleError = e
-  }
-
-  // Assert
-  expect(noOptionsError).toBeInstanceOf(Error)
-  expect(noOptionsError?.message).toMatch(/requires a role/)
-  expect(emptyRoleError).toBeInstanceOf(Error)
-  expect(emptyRoleError?.message).toMatch(/requires a role/)
-  expect(invalidRoleError).toBeInstanceOf(Error)
-  expect(invalidRoleError?.message).toMatch(/requires a role/)
-})
-
 test('permission demand denies a user without the required permission', () => {
   // Arrange
   const h = createToolkit()
@@ -108,7 +77,7 @@ test('permission demand denies a user without the required permission', () => {
   expect(h.result.takenOver).toBe(true)
 })
 
-test('role demand denies a user with the role assigned to another CPH', () => {
+test('permission demand denies a user with the permission granted for another CPH', () => {
   // Arrange
   const h = createToolkit()
   const request = {
@@ -119,8 +88,8 @@ test('role demand denies a user with the role assigned to another CPH', () => {
     },
     params: { cph: '10/081/9999' }
   }
-  const demand = demandRole({
-    role: 'lis-role-cattle-read',
+  const demand = demandPermission({
+    permission: 'lis-perm-cattle-read',
     getCph: ({ params }) => params.cph
   })
 
@@ -129,12 +98,12 @@ test('role demand denies a user with the role assigned to another CPH', () => {
 
   // Assert
   expect(result).toBe(h.result)
-  expect(h.result.payload).toEqual({ message: 'Role denied' })
+  expect(h.result.payload).toEqual({ message: 'Permission denied' })
   expect(h.result.statusCode).toBe(403)
   expect(h.result.takenOver).toBe(true)
 })
 
-test('permission and role demands continue when requirements are met', () => {
+test('permission demand continues when the requirement is met', () => {
   // Arrange
   const h = createToolkit()
   const request = {
@@ -147,9 +116,7 @@ test('permission and role demands continue when requirements are met', () => {
   const permissionResult = demandPermission({
     permission: 'lis-perm-cattle-read'
   })(request, h)
-  const roleResult = demandRole({ role: 'lis-role-caseworker' })(request, h)
 
   // Assert
   expect(permissionResult).toBe(h.continue)
-  expect(roleResult).toBe(h.continue)
 })

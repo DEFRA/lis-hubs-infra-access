@@ -41,9 +41,7 @@ export { createHoldingService } from './holding-service.js'
 export {
   AUTHORIZATION_VERSION,
   demandPermission,
-  demandRole,
   hasPermission,
-  hasRole,
   hydrateAuthorization,
   resolveAuthorization
 } from './authorization/index.js'
