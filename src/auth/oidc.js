@@ -9,7 +9,7 @@ import {
   getHubAuthSession,
   setHubAuthFlow
 } from './session.js'
-import { getReturnUrlFromRequest, sanitizeReturnUrl } from './tokens.js'
+import { getReturnUrlFromRequest, sanitizeReturnUrl } from './tokens/index.js'
 
 async function fetchJson(url, options = {}) {
   const response = await fetch(url, options)
