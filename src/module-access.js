@@ -166,8 +166,8 @@ export function getAuthorizedSpecies(user) {
 
 /**
  * Checks whether a user has the required permissions to access a module.
- * Back-office roles bypass permission checks. Compares user permissions
- * against module scope, species, app, and minimum access level.
+ * Compares user permissions against module scope, species, app, and
+ * minimum access level.
  *
  * @param {User} user - User object with permissions and roles
  * @param {ModuleAccess} moduleAccess - Module access requirements
@@ -176,13 +176,6 @@ export function getAuthorizedSpecies(user) {
 export function hasModuleAccess(user, moduleAccess) {
   if (!moduleAccess?.minLevel) {
     return false
-  }
-
-  if (
-    user?.roles?.includes('lis-role-back-office') ||
-    user?.permissions?.includes('lis-perm-back-office')
-  ) {
-    return true
   }
 
   const permissions = Array.isArray(user?.permissions) ? user.permissions : []

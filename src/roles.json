@@ -157,5 +157,9 @@
   },
   "lis-role-back-office": {
     "permissions": ["lis-perm-back-office"]
+  },
+
+  "lis-role-nor-issuer": {
+    "permissions": ["lis-perm-cattle-nor-read", "lis-perm-cattle-nor-write"]
   }
 }

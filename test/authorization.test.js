@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import { test } from 'vitest'
+import { expect, test } from 'vitest'
 
 import {
   demandPermission,
@@ -33,49 +32,65 @@ function createToolkit() {
 }
 
 test('unknown source roles receive only the default reader role', () => {
-  assert.deepEqual(
-    resolveAuthorization({ source: 'entra', sourceRoles: ['unknown-role'] }),
-    {
-      authzVersion: 1,
-      roles: ['lis-role-reader'],
-      permissions: [],
-      roleAssignments: [],
-      permissionAssignments: [],
-      holdings: []
-    }
-  )
+  // Arrange
+  const options = { source: 'entra', sourceRoles: ['unknown-role'] }
+
+  // Act
+  const result = resolveAuthorization(options)
+
+  // Assert
+  expect(result).toEqual({
+    authzVersion: 1,
+    roles: ['lis-role-reader'],
+    permissions: [],
+    roleAssignments: [],
+    permissionAssignments: [],
+    holdings: []
+  })
 })
 
 test('preserves LIS roles already translated by the identity provider', () => {
-  assert.deepEqual(
-    resolveAuthorization({
-      source: 'entra',
-      sourceRoles: ['lis-role-back-office']
-    }),
-    {
-      authzVersion: 1,
-      roles: ['lis-role-reader', 'lis-role-back-office'],
-      permissions: ['lis-perm-back-office'],
-      roleAssignments: [],
-      permissionAssignments: [],
-      holdings: []
-    }
-  )
+  // Arrange
+  const options = {
+    source: 'entra',
+    sourceRoles: ['lis-role-back-office']
+  }
+
+  // Act
+  const result = resolveAuthorization(options)
+
+  // Assert
+  expect(result).toEqual({
+    authzVersion: 1,
+    roles: ['lis-role-reader', 'lis-role-back-office'],
+    permissions: ['lis-perm-back-office'],
+    roleAssignments: [],
+    permissionAssignments: [],
+    holdings: []
+  })
 })
 
 test('permissions are rehydrated locally from LIS roles', () => {
+  // Arrange
   const authorization = hydrateAuthorization({
     roles: ['lis-role-caseworker']
   })
 
-  assert.equal(
-    hasPermission(authorization, { permission: 'lis-perm-cattle-read' }),
-    true
-  )
-  assert.equal(hasRole(authorization, { role: 'lis-role-caseworker' }), true)
+  // Act
+  const hasReadPermission = hasPermission(authorization, {
+    permission: 'lis-perm-cattle-read'
+  })
+  const hasCaseworkerRole = hasRole(authorization, {
+    role: 'lis-role-caseworker'
+  })
+
+  // Assert
+  expect(hasReadPermission).toBe(true)
+  expect(hasCaseworkerRole).toBe(true)
 })
 
 test('CPH-scoped permission demands use scoped role assignments', () => {
+  // Arrange
   const authorization = {
     roles: ['lis-role-reader'],
     roleAssignments: [
@@ -86,82 +101,91 @@ test('CPH-scoped permission demands use scoped role assignments', () => {
     ]
   }
 
-  assert.equal(
-    hasPermission(authorization, {
-      permission: 'lis-perm-cattle-read',
-      cph: '10/081/1234'
-    }),
-    true
-  )
-  assert.equal(
-    hasPermission(authorization, {
-      permission: 'lis-perm-cattle-read',
-      cph: '10/081/9999'
-    }),
-    false
-  )
+  // Act
+  const matchingCphResult = hasPermission(authorization, {
+    permission: 'lis-perm-cattle-read',
+    cph: '10/081/1234'
+  })
+  const mismatchedCphResult = hasPermission(authorization, {
+    permission: 'lis-perm-cattle-read',
+    cph: '10/081/9999'
+  })
+
+  // Assert
+  expect(matchingCphResult).toBe(true)
+  expect(mismatchedCphResult).toBe(false)
 })
 
 test('Entra roles are translated and expanded to permissions', () => {
-  const authorization = resolveAuthorization({
+  // Arrange
+  const options = {
     source: 'entra',
     sourceRoles: ['bcms_user']
-  })
+  }
 
-  assert.deepEqual(authorization.roles, [
+  // Act
+  const authorization = resolveAuthorization(options)
+
+  // Assert
+  expect(authorization.roles).toEqual([
     'lis-role-reader',
     'lis-role-back-office',
-    'lis-role-caseworker',
     'lis-role-cattle-write',
     'lis-role-cattle-register-write',
-    'lis-role-sheep-write',
-    'lis-role-sheep-register-write'
+    'lis-role-cattle-home-write',
+    'lis-role-cattle-death-write',
+    'lis-role-cattle-move-write'
   ])
-  assert.deepEqual(authorization.permissions, [
+  expect(authorization.permissions).toEqual([
     'lis-perm-back-office',
     'lis-perm-cattle-read',
-    'lis-perm-cattle-register-write',
-    'lis-perm-sheep-read',
     'lis-perm-cattle-write',
     'lis-perm-cattle-register-read',
-    'lis-perm-sheep-write',
-    'lis-perm-sheep-register-read',
-    'lis-perm-sheep-register-write'
+    'lis-perm-cattle-register-write',
+    'lis-perm-cattle-home-read',
+    'lis-perm-cattle-home-write',
+    'lis-perm-cattle-death-read',
+    'lis-perm-cattle-death-write',
+    'lis-perm-cattle-move-read',
+    'lis-perm-cattle-move-write'
   ])
 })
 
 test('profile role assignments retain their CPH scope', () => {
-  const authorization = resolveAuthorization({
+  // Arrange
+  const options = {
     source: 'profile',
     roleAssignments: [{ role: 'livestockowner', cph: '10/081/1234' }]
-  })
+  }
 
-  assert.equal(
+  // Act
+  const authorization = resolveAuthorization(options)
+
+  // Assert
+  expect(
     authorization.roleAssignments.every(
       (assignment) => assignment.cph === '10/081/1234'
-    ),
-    true
-  )
-  assert.equal(
+    )
+  ).toBe(true)
+  expect(
     authorization.roleAssignments.some(
       (assignment) => assignment.role === 'lis-role-sheep-read'
-    ),
-    true
-  )
-  assert.deepEqual(authorization.roles, ['lis-role-reader'])
-  assert.deepEqual(authorization.permissions, [])
-  assert.equal(
+    )
+  ).toBe(true)
+  expect(authorization.roles).toEqual(['lis-role-reader'])
+  expect(authorization.permissions).toEqual([])
+  expect(
     authorization.permissionAssignments.some(
       (assignment) =>
         assignment.permission === 'lis-perm-sheep-read' &&
         assignment.cph === '10/081/1234'
-    ),
-    true
-  )
+    )
+  ).toBe(true)
 })
 
 test('rejects unknown roles and malformed authorization input', () => {
-  const authorization = hydrateAuthorization({
+  // Arrange
+  const options = {
     roles: ['lis-role-caseworker', 'unknown-role', null, 'lis-role-caseworker'],
     roleAssignments: [
       { role: 'lis-role-cattle-read', cph: '10/081/1234' },
@@ -169,64 +193,83 @@ test('rejects unknown roles and malformed authorization input', () => {
       { role: 'lis-role-cattle-read' },
       null
     ]
-  })
+  }
 
-  assert.deepEqual(authorization.roles, ['lis-role-caseworker'])
-  assert.deepEqual(authorization.roleAssignments, [
+  // Act
+  const authorization = hydrateAuthorization(options)
+
+  // Assert
+  expect(authorization.roles).toEqual(['lis-role-caseworker'])
+  expect(authorization.roleAssignments).toEqual([
     { role: 'lis-role-cattle-read', cph: '10/081/1234' }
   ])
-  assert.equal(
+  expect(
     authorization.permissionAssignments.some(
       ({ permission }) => permission === 'lis-perm-cattle-read'
-    ),
-    true
-  )
+    )
+  ).toBe(true)
 })
 
 test('uses safe defaults for non-array roles, assignments and holdings', () => {
-  const resolved = resolveAuthorization({
+  // Arrange
+  const options = {
     source: 'unknown',
     sourceRoles: 'bcms_user',
     roleAssignments: { role: 'livestockowner', cph: '10/081/1234' },
     holdings: 'not-an-array'
-  })
+  }
 
-  assert.deepEqual(resolved.roles, ['lis-role-reader'])
-  assert.deepEqual(resolved.permissions, [])
-  assert.deepEqual(resolved.roleAssignments, [])
-  assert.deepEqual(resolved.permissionAssignments, [])
-  assert.deepEqual(resolved.holdings, [])
+  // Act
+  const resolved = resolveAuthorization(options)
+
+  // Assert
+  expect(resolved.roles).toEqual(['lis-role-reader'])
+  expect(resolved.permissions).toEqual([])
+  expect(resolved.roleAssignments).toEqual([])
+  expect(resolved.permissionAssignments).toEqual([])
+  expect(resolved.holdings).toEqual([])
 })
 
 test('does not grant an unknown role or permission', () => {
+  // Arrange
   const authorization = {
     roles: ['lis-role-reader'],
     roleAssignments: [{ role: 'lis-role-cattle-read', cph: '10/081/1234' }]
   }
 
-  assert.equal(hasRole(authorization, { role: 'unknown-role' }), false)
-  assert.equal(
-    hasPermission(authorization, { permission: 'unknown-permission' }),
-    false
-  )
+  // Act
+  const hasUnknownRole = hasRole(authorization, { role: 'unknown-role' })
+  const hasUnknownPermission = hasPermission(authorization, {
+    permission: 'unknown-permission'
+  })
+
+  // Assert
+  expect(hasUnknownRole).toBe(false)
+  expect(hasUnknownPermission).toBe(false)
 })
 
 test('does not grant a scoped role for a missing or different CPH', () => {
+  // Arrange
   const authorization = {
     roleAssignments: [{ role: 'lis-role-cattle-read', cph: '10/081/1234' }]
   }
 
-  assert.equal(
-    hasRole(authorization, {
-      role: 'lis-role-cattle-read',
-      cph: '10/081/9999'
-    }),
-    false
-  )
-  assert.equal(hasRole(authorization, { role: 'lis-role-cattle-read' }), false)
+  // Act
+  const mismatchedCphResult = hasRole(authorization, {
+    role: 'lis-role-cattle-read',
+    cph: '10/081/9999'
+  })
+  const missingCphResult = hasRole(authorization, {
+    role: 'lis-role-cattle-read'
+  })
+
+  // Assert
+  expect(mismatchedCphResult).toBe(false)
+  expect(missingCphResult).toBe(false)
 })
 
 test('does not trust supplied permissions without a valid role', () => {
+  // Arrange
   const authorization = hydrateAuthorization({
     roles: ['unknown-role'],
     permissions: ['lis-perm-back-office'],
@@ -235,33 +278,81 @@ test('does not trust supplied permissions without a valid role', () => {
     ]
   })
 
-  assert.deepEqual(authorization.permissions, [])
-  assert.deepEqual(authorization.permissionAssignments, [])
-  assert.equal(
-    hasPermission(authorization, { permission: 'lis-perm-back-office' }),
-    false
-  )
+  // Act
+  const hasBackOfficePermission = hasPermission(authorization, {
+    permission: 'lis-perm-back-office'
+  })
+
+  // Assert
+  expect(authorization.permissions).toEqual([])
+  expect(authorization.permissionAssignments).toEqual([])
+  expect(hasBackOfficePermission).toBe(false)
 })
 
 test('permission demand rejects missing permission configuration', () => {
-  assert.throws(() => demandPermission(), /requires a permission/)
-  assert.throws(
-    () => demandPermission({ permission: '' }),
-    /requires a permission/
-  )
-  assert.throws(
-    () => demandPermission({ permission: 123 }),
-    /requires a permission/
-  )
+  // Arrange
+  // Act
+  let noOptionsError
+  try {
+    demandPermission()
+  } catch (e) {
+    noOptionsError = e
+  }
+  let emptyPermissionError
+  try {
+    demandPermission({ permission: '' })
+  } catch (e) {
+    emptyPermissionError = e
+  }
+  let invalidPermissionError
+  try {
+    demandPermission({ permission: 123 })
+  } catch (e) {
+    invalidPermissionError = e
+  }
+
+  // Assert
+  expect(noOptionsError).toBeInstanceOf(Error)
+  expect(noOptionsError?.message).toMatch(/requires a permission/)
+  expect(emptyPermissionError).toBeInstanceOf(Error)
+  expect(emptyPermissionError?.message).toMatch(/requires a permission/)
+  expect(invalidPermissionError).toBeInstanceOf(Error)
+  expect(invalidPermissionError?.message).toMatch(/requires a permission/)
 })
 
 test('role demand rejects missing role configuration', () => {
-  assert.throws(() => demandRole(), /requires a role/)
-  assert.throws(() => demandRole({ role: '' }), /requires a role/)
-  assert.throws(() => demandRole({ role: 123 }), /requires a role/)
+  // Arrange
+  // Act
+  let noOptionsError
+  try {
+    demandRole()
+  } catch (e) {
+    noOptionsError = e
+  }
+  let emptyRoleError
+  try {
+    demandRole({ role: '' })
+  } catch (e) {
+    emptyRoleError = e
+  }
+  let invalidRoleError
+  try {
+    demandRole({ role: 123 })
+  } catch (e) {
+    invalidRoleError = e
+  }
+
+  // Assert
+  expect(noOptionsError).toBeInstanceOf(Error)
+  expect(noOptionsError?.message).toMatch(/requires a role/)
+  expect(emptyRoleError).toBeInstanceOf(Error)
+  expect(emptyRoleError?.message).toMatch(/requires a role/)
+  expect(invalidRoleError).toBeInstanceOf(Error)
+  expect(invalidRoleError?.message).toMatch(/requires a role/)
 })
 
 test('permission demand denies a user without the required permission', () => {
+  // Arrange
   const h = createToolkit()
   const request = {
     app: { hubAuth: { roles: ['lis-role-reader'] } },
@@ -272,13 +363,18 @@ test('permission demand denies a user without the required permission', () => {
     getCph: ({ params }) => params.cph
   })
 
-  assert.equal(demand(request, h), h.result)
-  assert.deepEqual(h.result.payload, { message: 'Permission denied' })
-  assert.equal(h.result.statusCode, 403)
-  assert.equal(h.result.takenOver, true)
+  // Act
+  const result = demand(request, h)
+
+  // Assert
+  expect(result).toBe(h.result)
+  expect(h.result.payload).toEqual({ message: 'Permission denied' })
+  expect(h.result.statusCode).toBe(403)
+  expect(h.result.takenOver).toBe(true)
 })
 
 test('role demand denies a user with the role assigned to another CPH', () => {
+  // Arrange
   const h = createToolkit()
   const request = {
     app: {
@@ -293,24 +389,30 @@ test('role demand denies a user with the role assigned to another CPH', () => {
     getCph: ({ params }) => params.cph
   })
 
-  assert.equal(demand(request, h), h.result)
-  assert.deepEqual(h.result.payload, { message: 'Role denied' })
-  assert.equal(h.result.statusCode, 403)
-  assert.equal(h.result.takenOver, true)
+  // Act
+  const result = demand(request, h)
+
+  // Assert
+  expect(result).toBe(h.result)
+  expect(h.result.payload).toEqual({ message: 'Role denied' })
+  expect(h.result.statusCode).toBe(403)
+  expect(h.result.takenOver).toBe(true)
 })
 
 test('permission and role demands continue when requirements are met', () => {
+  // Arrange
   const h = createToolkit()
   const request = {
     app: { hubAuth: { roles: ['lis-role-caseworker'] } }
   }
 
-  assert.equal(
-    demandPermission({ permission: 'lis-perm-cattle-read' })(request, h),
-    h.continue
-  )
-  assert.equal(
-    demandRole({ role: 'lis-role-caseworker' })(request, h),
-    h.continue
-  )
+  // Act
+  const permissionResult = demandPermission({
+    permission: 'lis-perm-cattle-read'
+  })(request, h)
+  const roleResult = demandRole({ role: 'lis-role-caseworker' })(request, h)
+
+  // Assert
+  expect(permissionResult).toBe(h.continue)
+  expect(roleResult).toBe(h.continue)
 })

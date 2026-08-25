@@ -1,5 +1,4 @@
-import assert from 'node:assert/strict'
-import { test } from 'vitest'
+import { expect, test } from 'vitest'
 
 import {
   buildCurrentRequestUrl,
@@ -25,12 +24,15 @@ const jwtConfig = {
 }
 
 test('issueHubJwt carries holdings into the spoke session', async () => {
+  // Arrange
   const holdings = [
     {
       group_name: 'My farm',
       cphs: [{ cph: '10/081/1234' }]
     }
   ]
+
+  // Act
   const token = await issueHubJwt(
     {
       sub: 'holding-user',
@@ -39,114 +41,123 @@ test('issueHubJwt carries holdings into the spoke session', async () => {
     },
     jwtConfig
   )
-
   const payload = await verifyHubJwt(token, jwtConfig)
 
-  assert.deepEqual(payload.holdings, holdings)
+  // Assert
+  expect(payload.holdings).toEqual(holdings)
 })
 
 test('buildCurrentRequestUrl reapplies the forwarded prefix for mounted spokes', () => {
-  const url = buildCurrentRequestUrl(
-    {
-      headers: {
-        host: 'localhost:3000',
-        'x-forwarded-prefix': '/chicken/move'
-      },
-      raw: {
-        req: {
-          url: '/about?step=1'
-        }
-      },
-      path: '/about'
+  // Arrange
+  const request = {
+    headers: {
+      host: 'localhost:3000',
+      'x-forwarded-prefix': '/chicken/move'
     },
-    3206
-  )
+    raw: {
+      req: {
+        url: '/about?step=1'
+      }
+    },
+    path: '/about'
+  }
 
-  assert.equal(
-    url.toString(),
-    'http://localhost:3000/chicken/move/about?step=1'
-  )
+  // Act
+  const url = buildCurrentRequestUrl(request, 3206)
+
+  // Assert
+  expect(url.toString()).toBe('http://localhost:3000/chicken/move/about?step=1')
 })
 
 test('buildMicrositeReturnUrl preserves a proxied deep link as a relative hub path', () => {
-  const returnUrl = buildMicrositeReturnUrl(
-    {
-      headers: {
-        host: 'front-office.lis.defra',
-        'x-forwarded-proto': 'https',
-        'x-forwarded-prefix': '/cattle/register'
-      },
-      raw: { req: { url: '/check?reference=123' } },
-      path: '/check'
+  // Arrange
+  const request = {
+    headers: {
+      host: 'front-office.lis.defra',
+      'x-forwarded-proto': 'https',
+      'x-forwarded-prefix': '/cattle/register'
     },
-    { port: 3201, basePath: '/cattle/register' }
-  )
+    raw: { req: { url: '/check?reference=123' } },
+    path: '/check'
+  }
+  const options = { port: 3201, basePath: '/cattle/register' }
 
-  assert.equal(returnUrl, '/cattle/register/check?reference=123')
+  // Act
+  const returnUrl = buildMicrositeReturnUrl(request, options)
+
+  // Assert
+  expect(returnUrl).toBe('/cattle/register/check?reference=123')
 })
 
 test('buildMicrositeReturnUrl canonicalizes direct-port access to its public mount path', () => {
-  const returnUrl = buildMicrositeReturnUrl(
-    {
-      headers: { host: 'localhost:3201' },
-      raw: { req: { url: '/' } },
-      path: '/'
-    },
-    { port: 3201, basePath: '/cattle/register' }
-  )
+  // Arrange
+  const request = {
+    headers: { host: 'localhost:3201' },
+    raw: { req: { url: '/' } },
+    path: '/'
+  }
+  const options = { port: 3201, basePath: '/cattle/register' }
 
-  assert.equal(returnUrl, '/cattle/register')
+  // Act
+  const returnUrl = buildMicrositeReturnUrl(request, options)
+
+  // Assert
+  expect(returnUrl).toBe('/cattle/register')
 })
 
 test('createSpokeAuthToken returns a bearer token value', async () => {
-  const bearerToken = await createSpokeAuthToken(
-    {
-      taxonomyId: 'status',
-      spokeId: 'cattle-status',
-      user: {
-        sub: 'test-user',
-        email: 'test.user@example.com',
-        firstName: 'Test',
-        lastName: 'User',
-        roles: ['lis-role-caseworker'],
-        permissions: ['lis-perm-front-office', 'lis-perm-cattle-read']
-      }
-    },
-    jwtConfig
-  )
+  // Arrange
+  const options = {
+    taxonomyId: 'status',
+    spokeId: 'cattle-status',
+    user: {
+      sub: 'test-user',
+      email: 'test.user@example.com',
+      firstName: 'Test',
+      lastName: 'User',
+      roles: ['lis-role-caseworker'],
+      permissions: ['lis-perm-front-office', 'lis-perm-cattle-read']
+    }
+  }
 
-  assert.match(bearerToken, /^Bearer\s.+$/)
+  // Act
+  const bearerToken = await createSpokeAuthToken(options, jwtConfig)
+
+  // Assert
+  expect(bearerToken).toMatch(/^Bearer\s.+$/)
 })
 
 test('createSpokeAuthToken signs a JWT with the expected hub service claims', async () => {
-  const bearerToken = await createSpokeAuthToken(
-    {
-      taxonomyId: 'status',
-      spokeId: 'cattle-status',
-      user: {
-        sub: 'test-user',
-        email: 'test.user@example.com',
-        firstName: 'Test',
-        lastName: 'User',
-        roles: ['lis-role-caseworker'],
-        permissions: ['lis-perm-front-office', 'lis-perm-cattle-read']
-      }
-    },
-    jwtConfig
-  )
+  // Arrange
+  const options = {
+    taxonomyId: 'status',
+    spokeId: 'cattle-status',
+    user: {
+      sub: 'test-user',
+      email: 'test.user@example.com',
+      firstName: 'Test',
+      lastName: 'User',
+      roles: ['lis-role-caseworker'],
+      permissions: ['lis-perm-front-office', 'lis-perm-cattle-read']
+    }
+  }
 
+  // Act
+  const bearerToken = await createSpokeAuthToken(options, jwtConfig)
   const [, token] = bearerToken.split(' ')
   const payload = await verifyHubJwt(token, jwtConfig)
 
-  assert.equal(payload.sub, 'hub-service')
-  assert.equal(payload.taxonomy, 'status')
-  assert.equal(payload.spokeId, 'cattle-status')
-  assert.equal(payload.actorEmail, 'test.user@example.com')
-  assert.deepEqual(payload.actorRoles, ['lis-role-caseworker'])
-  assert.equal('actorPermissions' in payload, false)
+  // Assert
+  expect(payload.sub).toBe('hub-service')
+  expect(payload.taxonomy).toBe('status')
+  expect(payload.spokeId).toBe('cattle-status')
+  expect(payload.actorEmail).toBe('test.user@example.com')
+  expect(payload.actorRoles).toEqual(['lis-role-caseworker'])
+  expect('actorPermissions' in payload).toBe(false)
 })
 
 test('createSpokeGuard rehydrates permissions from hub-service JWT roles', async () => {
+  // Arrange
   const guard = createSpokeGuard({
     spokeId: 'cattle-status',
     hubOrigin: 'http://localhost:3000',
@@ -161,7 +172,6 @@ test('createSpokeGuard rehydrates permissions from hub-service JWT roles', async
     issuer: jwtConfig.issuer,
     audience: jwtConfig.audience
   })
-
   const bearerToken = await createSpokeAuthToken(
     {
       taxonomyId: 'status',
@@ -177,18 +187,16 @@ test('createSpokeGuard rehydrates permissions from hub-service JWT roles', async
     },
     jwtConfig
   )
-
   let onPreAuthHandler
   await guard.plugin.register(
     {
       ext(event, handler) {
-        assert.equal(event, 'onPreAuth')
+        expect(event).toBe('onPreAuth')
         onPreAuthHandler = handler
       }
     },
     {}
   )
-
   const request = {
     path: '/',
     headers: {
@@ -203,10 +211,12 @@ test('createSpokeGuard rehydrates permissions from hub-service JWT roles', async
     }
   }
 
+  // Act
   const result = await onPreAuthHandler(request, h)
 
-  assert.equal(result, h.continue)
-  assert.deepEqual(request.app.hubAuth, {
+  // Assert
+  expect(result).toBe(h.continue)
+  expect(request.app.hubAuth).toEqual({
     sub: 'test-user',
     email: 'test.user@example.com',
     firstName: 'Test',
@@ -224,6 +234,7 @@ test('createSpokeGuard rehydrates permissions from hub-service JWT roles', async
 })
 
 test('createSpokeGuard supports hub-service authentication on marked user-session routes', async () => {
+  // Arrange
   const guard = createSpokeGuard({
     spokeId: 'cattle-home',
     hubOrigin: 'http://localhost:3000',
@@ -252,18 +263,16 @@ test('createSpokeGuard supports hub-service authentication on marked user-sessio
     },
     jwtConfig
   )
-
   let onPreAuthHandler
   await guard.plugin.register({
     state(cookieName) {
-      assert.equal(cookieName, 'livestock_hub_jwt')
+      expect(cookieName).toBe('livestock_hub_jwt')
     },
     ext(event, handler) {
-      assert.equal(event, 'onPreAuth')
+      expect(event).toBe('onPreAuth')
       onPreAuthHandler = handler
     }
   })
-
   const request = {
     path: '/summary',
     route: { settings: { app: { authMode: 'hub-service' } } },
@@ -277,42 +286,43 @@ test('createSpokeGuard supports hub-service authentication on marked user-sessio
     }
   }
 
+  // Act
   const result = await onPreAuthHandler(request, h)
 
-  assert.equal(result, h.continue)
-  assert.equal(request.app.hubAuth.email, 'test.user@example.com')
-  assert.deepEqual(request.app.hubAuth.permissions, [
+  // Assert
+  expect(result).toBe(h.continue)
+  expect(request.app.hubAuth.email).toBe('test.user@example.com')
+  expect(request.app.hubAuth.permissions).toEqual([
     'lis-perm-front-office',
     'lis-perm-cattle-read'
   ])
 })
 
 test('resolveAccessMode returns the most restrictive mode', () => {
-  assert.equal(
-    resolveAccessMode({
-      taxonomyAccessMode: 'public',
-      spokeAccessMode: 'user-session'
-    }),
-    'user-session'
-  )
-  assert.equal(
-    resolveAccessMode({
-      taxonomyAccessMode: 'user-session',
-      spokeAccessMode: 'hub-service'
-    }),
-    'hub-service'
-  )
-  assert.equal(
-    resolveAccessMode({
-      taxonomyAccessMode: 'hub-service',
-      spokeAccessMode: 'public'
-    }),
-    'hub-service'
-  )
+  // Arrange
+  // Act
+  const publicVsUserSession = resolveAccessMode({
+    taxonomyAccessMode: 'public',
+    spokeAccessMode: 'user-session'
+  })
+  const userSessionVsHubService = resolveAccessMode({
+    taxonomyAccessMode: 'user-session',
+    spokeAccessMode: 'hub-service'
+  })
+  const hubServiceVsPublic = resolveAccessMode({
+    taxonomyAccessMode: 'hub-service',
+    spokeAccessMode: 'public'
+  })
+
+  // Assert
+  expect(publicVsUserSession).toBe('user-session')
+  expect(userSessionVsHubService).toBe('hub-service')
+  expect(hubServiceVsPublic).toBe('hub-service')
 })
 
 test('createSpokeGuard returns a hub-service guard for status spokes', () => {
-  const guard = createSpokeGuard({
+  // Arrange
+  const options = {
     spokeId: 'cattle-status',
     hubOrigin: 'http://localhost:3000',
     cookieName: 'livestock_hub_jwt',
@@ -325,82 +335,121 @@ test('createSpokeGuard returns a hub-service guard for status spokes', () => {
     secret: jwtConfig.secret,
     issuer: jwtConfig.issuer,
     audience: jwtConfig.audience
-  })
+  }
 
-  assert.equal(guard.plugin.name, 'hubServiceGuard')
+  // Act
+  const guard = createSpokeGuard(options)
+
+  // Assert
+  expect(guard.plugin.name).toBe('hubServiceGuard')
 })
 
 test('builds a hub login URL with a sanitized return path', () => {
-  assert.equal(
-    buildHubLoginUrl({
-      hubOrigin: 'https://hub.example',
-      returnUrl: '/cattle/move?step=1'
-    }),
+  // Arrange
+  const options = {
+    hubOrigin: 'https://hub.example',
+    returnUrl: '/cattle/move?step=1'
+  }
+
+  // Act
+  const url = buildHubLoginUrl(options)
+
+  // Assert
+  expect(url).toBe(
     'https://hub.example/auth/login?returnUrl=%2Fcattle%2Fmove%3Fstep%3D1'
   )
 })
 
 test('recognizes only known public request paths', () => {
-  for (const path of [
+  // Arrange
+  const publicPaths = [
     '/favicon.ico',
     '/health',
     '/assets',
     '/assets/app.css',
     '/mounted/assets/app.css'
-  ]) {
-    assert.equal(isPublicRequest({ path }, '/assets'), true)
+  ]
+
+  // Act
+  const results = publicPaths.map((path) =>
+    isPublicRequest({ path }, '/assets')
+  )
+  const privateResult = isPublicRequest({ path: '/private' }, '/assets')
+
+  // Assert
+  for (const result of results) {
+    expect(result).toBe(true)
   }
-  assert.equal(isPublicRequest({ path: '/private' }, '/assets'), false)
+  expect(privateResult).toBe(false)
 })
 
 test('uses request defaults when reconstructing direct request URLs', () => {
-  const url = buildCurrentRequestUrl(
-    {
-      headers: { 'x-forwarded-prefix': 'cattle/home' },
-      raw: { req: {} },
-      path: '/summary'
-    },
-    3221
-  )
+  // Arrange
+  const request = {
+    headers: { 'x-forwarded-prefix': 'cattle/home' },
+    raw: { req: {} },
+    path: '/summary'
+  }
 
-  assert.equal(url.toString(), 'http://localhost:3221/cattle/home/summary')
+  // Act
+  const url = buildCurrentRequestUrl(request, 3221)
+
+  // Assert
+  expect(url.toString()).toBe('http://localhost:3221/cattle/home/summary')
 })
 
 test('service-token verification rejects the wrong subject, taxonomy and spoke', async () => {
+  // Arrange
   const userToken = await issueHubJwt({ sub: 'user-1' }, jwtConfig)
-  await assert.rejects(
-    verifyHubServiceJwt(userToken, {
-      ...jwtConfig,
-      taxonomyId: 'status',
-      spokeId: 'cattle-status'
-    }),
-    /Unexpected service token subject/
-  )
-
   const bearerToken = await createSpokeAuthToken(
     { taxonomyId: 'status', spokeId: 'cattle-status', user: {} },
     jwtConfig
   )
   const token = bearerToken.slice('Bearer '.length)
-  await assert.rejects(
-    verifyHubServiceJwt(token, {
+
+  // Act
+  let subjectError
+  try {
+    await verifyHubServiceJwt(userToken, {
+      ...jwtConfig,
+      taxonomyId: 'status',
+      spokeId: 'cattle-status'
+    })
+  } catch (e) {
+    subjectError = e
+  }
+  let taxonomyError
+  try {
+    await verifyHubServiceJwt(token, {
       ...jwtConfig,
       taxonomyId: 'move',
       spokeId: 'cattle-status'
-    }),
-    /Unexpected service token taxonomy/
-  )
-  await assert.rejects(
-    verifyHubServiceJwt(token, {
+    })
+  } catch (e) {
+    taxonomyError = e
+  }
+  let spokeError
+  try {
+    await verifyHubServiceJwt(token, {
       ...jwtConfig,
       taxonomyId: 'status',
       spokeId: 'sheep-status'
-    }),
-    /Unexpected service token spoke/
-  )
+    })
+  } catch (e) {
+    spokeError = e
+  }
+
+  // Assert
+  expect(subjectError).toBeInstanceOf(Error)
+  expect(subjectError?.message).toMatch(/Unexpected service token subject/)
+  expect(taxonomyError).toBeInstanceOf(Error)
+  expect(taxonomyError?.message).toMatch(/Unexpected service token taxonomy/)
+  expect(spokeError).toBeInstanceOf(Error)
+  expect(spokeError?.message).toMatch(/Unexpected service token spoke/)
 })
 
 test('auth guard redirects unauthenticated requests and registers its cookie', async () => {
+  // Arrange
   const stateCalls = []
   const guard = createAuthGuard({
     hubOrigin: 'https://hub.example',
@@ -424,16 +473,20 @@ test('auth guard redirects unauthenticated requests and registers its cookie', a
     app: {}
   }
 
-  assert.equal(await handler(request, h), h.result)
-  assert.deepEqual(stateCalls, [['hub-jwt', { isSecure: true }]])
-  assert.match(
-    h.result.location,
+  // Act
+  const result = await handler(request, h)
+
+  // Assert
+  expect(result).toBe(h.result)
+  expect(stateCalls).toEqual([['hub-jwt', { isSecure: true }]])
+  expect(h.result.location).toMatch(
     /^https:\/\/alternate\.example\/auth\/login\?returnUrl=/
   )
-  assert.equal(h.result.takenOver, true)
+  expect(h.result.takenOver).toBe(true)
 })
 
 test('hub-service guard denies missing credentials and bypasses public routes', async () => {
+  // Arrange
   const guard = createHubServiceGuard({
     assetPath: '/assets',
     taxonomyId: 'status',
@@ -443,18 +496,23 @@ test('hub-service guard denies missing credentials and bypasses public routes', 
   const handler = registerRequestGuard(guard)
   const h = createGuardToolkit()
 
-  assert.equal(
-    await handler({ path: '/health', headers: {}, app: {} }, h),
-    h.continue
+  // Act
+  const healthResult = await handler(
+    { path: '/health', headers: {}, app: {} },
+    h
   )
-  assert.equal(
-    await handler({ path: '/private', headers: {}, app: {} }, h),
-    h.result
+  const privateResult = await handler(
+    { path: '/private', headers: {}, app: {} },
+    h
   )
-  assert.deepEqual(h.result.payload, {
+
+  // Assert
+  expect(healthResult).toBe(h.continue)
+  expect(privateResult).toBe(h.result)
+  expect(h.result.payload).toEqual({
     message: 'Hub service authentication required'
   })
-  assert.equal(h.result.statusCode, 401)
+  expect(h.result.statusCode).toBe(401)
 })
 
 function registerRequestGuard(
@@ -467,7 +525,7 @@ function registerRequestGuard(
   guard.plugin.register({
     state,
     ext(event, registeredHandler) {
-      assert.equal(event, 'onPreAuth')
+      expect(event).toBe('onPreAuth')
       handler = registeredHandler
     }
   })
