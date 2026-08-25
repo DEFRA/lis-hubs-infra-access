@@ -1,10 +1,10 @@
-import roleDefinitions from '../roles.json' with { type: 'json' }
 import { AUTHORIZATION_VERSION } from './constants.js'
 import { normalizeLisRoles, normalizeRoleAssignments } from './normalize.js'
 import {
   resolvePermissionAssignments,
   resolvePermissions
 } from './permissions.js'
+import { resolvedRoleDefinitions } from './roles-loader.js'
 
 /**
  * Rehydrates an authorization object with current role definitions and permissions.
@@ -19,7 +19,7 @@ export function hydrateAuthorization(authorization = {}) {
   const roles = normalizeLisRoles(authorization.roles)
   const roleAssignments = normalizeRoleAssignments(
     authorization.roleAssignments
-  ).filter((assignment) => roleDefinitions[assignment.role])
+  ).filter((assignment) => resolvedRoleDefinitions.has(assignment.role))
 
   return {
     ...authorization,

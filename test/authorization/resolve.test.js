@@ -41,7 +41,7 @@ test('preserves LIS roles already translated by the identity provider', () => {
   })
 })
 
-test('Entra roles are translated and expanded to permissions', () => {
+test('Entra roles are translated to a single bundled internal role and expanded to permissions', () => {
   // Arrange
   const options = {
     source: 'entra',
@@ -52,15 +52,7 @@ test('Entra roles are translated and expanded to permissions', () => {
   const authorization = resolveAuthorization(options)
 
   // Assert
-  expect(authorization.roles).toEqual([
-    'lis-role-reader',
-    'lis-role-back-office',
-    'lis-role-cattle-write',
-    'lis-role-cattle-register-write',
-    'lis-role-cattle-home-write',
-    'lis-role-cattle-death-write',
-    'lis-role-cattle-move-write'
-  ])
+  expect(authorization.roles).toEqual(['lis-role-reader', 'lis-role-bcms-user'])
   expect(authorization.permissions).toEqual([
     'lis-perm-back-office',
     'lis-perm-cattle-read',
@@ -87,16 +79,9 @@ test('profile role assignments retain their CPH scope', () => {
   const authorization = resolveAuthorization(options)
 
   // Assert
-  expect(
-    authorization.roleAssignments.every(
-      (assignment) => assignment.cph === '10/081/1234'
-    )
-  ).toBe(true)
-  expect(
-    authorization.roleAssignments.some(
-      (assignment) => assignment.role === 'lis-role-sheep-read'
-    )
-  ).toBe(true)
+  expect(authorization.roleAssignments).toEqual([
+    { role: 'lis-role-keeper', cph: '10/081/1234' }
+  ])
   expect(authorization.roles).toEqual(['lis-role-reader'])
   expect(authorization.permissions).toEqual([])
   expect(

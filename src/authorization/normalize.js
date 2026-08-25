@@ -1,4 +1,4 @@
-import roleDefinitions from '../roles.json' with { type: 'json' }
+import { resolvedRoleDefinitions } from './roles-loader.js'
 
 /**
  * @param {unknown} sourceRoles
@@ -17,7 +17,9 @@ export function normalizeSourceRoles(sourceRoles) {
  * @returns {string[]}
  */
 export function normalizeLisRoles(roles) {
-  return normalizeSourceRoles(roles).filter((role) => roleDefinitions[role])
+  return normalizeSourceRoles(roles).filter((role) =>
+    resolvedRoleDefinitions.has(role)
+  )
 }
 
 /**

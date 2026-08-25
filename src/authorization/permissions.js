@@ -1,4 +1,4 @@
-import roleDefinitions from '../roles.json' with { type: 'json' }
+import { resolvedRoleDefinitions } from './roles-loader.js'
 
 /**
  * @param {Iterable<string>} roles
@@ -7,7 +7,9 @@ import roleDefinitions from '../roles.json' with { type: 'json' }
 export function resolvePermissions(roles) {
   return [
     ...new Set(
-      [...roles].flatMap((role) => roleDefinitions[role]?.permissions ?? [])
+      [...roles].flatMap((role) => [
+        ...(resolvedRoleDefinitions.get(role) ?? [])
+      ])
     )
   ]
 }
@@ -18,9 +20,11 @@ export function resolvePermissions(roles) {
  */
 export function resolvePermissionAssignments(roleAssignments) {
   return roleAssignments.flatMap((assignment) =>
-    (roleDefinitions[assignment.role]?.permissions ?? []).map((permission) => ({
-      permission,
-      cph: assignment.cph
-    }))
+    [...(resolvedRoleDefinitions.get(assignment.role) ?? [])].map(
+      (permission) => ({
+        permission,
+        cph: assignment.cph
+      })
+    )
   )
 }

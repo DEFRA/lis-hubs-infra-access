@@ -1,11 +1,11 @@
 import roleMappings from '../role-mappings.json' with { type: 'json' }
-import roleDefinitions from '../roles.json' with { type: 'json' }
 import { AUTHORIZATION_VERSION, DEFAULT_ROLE } from './constants.js'
 import { normalizeRoleAssignments, normalizeSourceRoles } from './normalize.js'
 import {
   resolvePermissionAssignments,
   resolvePermissions
 } from './permissions.js'
+import { resolvedRoleDefinitions } from './roles-loader.js'
 
 /**
  * Resolves authorization from source identity provider roles and role assignments.
@@ -28,25 +28,26 @@ export function resolveAuthorization({
   const mappings = roleMappings[source] ?? {}
 
   for (const sourceRole of normalizeSourceRoles(sourceRoles)) {
-    if (roleDefinitions[sourceRole]) {
+    if (resolvedRoleDefinitions.has(sourceRole)) {
       roles.add(sourceRole)
     }
 
-    for (const role of mappings[sourceRole.toLowerCase()] ?? []) {
-      if (roleDefinitions[role]) {
-        roles.add(role)
-      }
+    const mappedRole = mappings[sourceRole.toLowerCase()]
+
+    if (mappedRole && resolvedRoleDefinitions.has(mappedRole)) {
+      roles.add(mappedRole)
     }
   }
 
   const translatedAssignments = normalizeRoleAssignments(roleAssignments)
-    .flatMap((assignment) =>
-      (mappings[assignment.role.toLowerCase()] ?? []).map((role) => ({
-        ...assignment,
-        role
-      }))
+    .map((assignment) => ({
+      ...assignment,
+      role: mappings[assignment.role.toLowerCase()]
+    }))
+    .filter(
+      (assignment) =>
+        assignment.role && resolvedRoleDefinitions.has(assignment.role)
     )
-    .filter((assignment) => roleDefinitions[assignment.role])
 
   return {
     authzVersion: AUTHORIZATION_VERSION,
