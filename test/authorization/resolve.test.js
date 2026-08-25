@@ -2,9 +2,12 @@ import { expect, test } from 'vitest'
 
 import { resolveAuthorization } from '../../src/authorization/resolve.js'
 
-test('unknown source roles receive only the default reader role', () => {
+test('unknown holding roles receive only the default reader role', () => {
   // Arrange
-  const options = { source: 'entra', sourceRoles: ['unknown-role'] }
+  const options = {
+    source: 'entra',
+    holdingRoles: [{ role: 'unknown-role', cph: '*' }]
+  }
 
   // Act
   const result = resolveAuthorization(options)
@@ -21,7 +24,7 @@ test('preserves LIS roles already translated by the identity provider', () => {
   // Arrange
   const options = {
     source: 'entra',
-    sourceRoles: ['lis-role-back-office']
+    holdingRoles: [{ role: 'lis-role-back-office', cph: '*' }]
   }
 
   // Act
@@ -38,11 +41,11 @@ test('preserves LIS roles already translated by the identity provider', () => {
   })
 })
 
-test('Entra roles are translated to a single bundled internal role', () => {
+test('source roles are translated to a single bundled internal role', () => {
   // Arrange
   const options = {
     source: 'entra',
-    sourceRoles: ['bcms_user']
+    holdingRoles: [{ role: 'bcms_user', cph: '*' }]
   }
 
   // Act
@@ -55,11 +58,11 @@ test('Entra roles are translated to a single bundled internal role', () => {
   ])
 })
 
-test('profile role assignments retain their CPH scope', () => {
+test('CPH-scoped holding roles retain their CPH scope', () => {
   // Arrange
   const options = {
     source: 'profile',
-    roleAssignments: [{ role: 'livestockowner', cph: '10/081/1234' }]
+    holdingRoles: [{ role: 'livestockowner', cph: '10/081/1234' }]
   }
 
   // Act
@@ -76,7 +79,7 @@ test('groups multiple CPHs for the same role into one statement', () => {
   // Arrange
   const options = {
     source: 'profile',
-    roleAssignments: [
+    holdingRoles: [
       { role: 'cphholder', cph: '10/081/1234' },
       { role: 'cphholder', cph: '10/081/5678' }
     ]
@@ -92,12 +95,31 @@ test('groups multiple CPHs for the same role into one statement', () => {
   ])
 })
 
-test('uses safe defaults for non-array roles, assignments and holdings', () => {
+test('a global grant for a role subsumes CPH-specific grants for the same role', () => {
+  // Arrange
+  const options = {
+    source: 'profile',
+    holdingRoles: [
+      { role: 'cphholder', cph: '*' },
+      { role: 'cphholder', cph: '10/081/1234' }
+    ]
+  }
+
+  // Act
+  const authorization = resolveAuthorization(options)
+
+  // Assert
+  expect(authorization.statements).toEqual([
+    { role: 'lis-role-reader', cphs: '*' },
+    { role: 'lis-role-keeper', cphs: '*' }
+  ])
+})
+
+test('uses safe defaults for non-array holding roles and holdings', () => {
   // Arrange
   const options = {
     source: 'unknown',
-    sourceRoles: 'bcms_user',
-    roleAssignments: { role: 'livestockowner', cph: '10/081/1234' },
+    holdingRoles: { role: 'livestockowner', cph: '10/081/1234' },
     holdings: 'not-an-array'
   }
 
