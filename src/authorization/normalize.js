@@ -34,7 +34,7 @@ export function normalizeRoleAssignments(assignments) {
  * @param {unknown} cphs
  * @returns {'*'|string[]|null}
  */
-export function normalizeCphScope(cphs) {
+function normalizeCphScope(cphs) {
   if (cphs === GLOBAL_CPH_SCOPE) {
     return GLOBAL_CPH_SCOPE
   }

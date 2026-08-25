@@ -5,6 +5,20 @@ afterEach(() => {
   vi.resetModules()
 })
 
+test('the real roles.json loads without throwing', async () => {
+  // Arrange
+  // Act
+  let error
+  try {
+    await import('../../src/authorization/roles-loader.js')
+  } catch (e) {
+    error = e
+  }
+
+  // Assert
+  expect(error).toBeUndefined()
+})
+
 test('throws on a circular extends chain', async () => {
   // Arrange
   vi.doMock('../../src/constants/roles.json', () => ({
