@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { test } from 'vitest'
+import { test, vi } from 'vitest'
 
 import {
   createSpokeGuard,
@@ -370,5 +370,43 @@ test('rejects malformed bearer headers and invalid service tokens', async () => 
       options
     ),
     null
+  )
+})
+
+test('logs safe diagnostics when hub-service authentication fails', async () => {
+  const options = {
+    secret: jwtConfig.secret,
+    issuer: jwtConfig.issuer,
+    audience: jwtConfig.audience,
+    taxonomyId: 'status',
+    spokeId: 'cattle-status'
+  }
+  const missingLogger = { warn: vi.fn() }
+
+  await getHubServiceJwtPayloadFromRequest(
+    { headers: {}, logger: missingLogger },
+    options
+  )
+
+  assert.deepEqual(missingLogger.warn.mock.calls[0], [
+    { authorizationHeaderPresent: false },
+    'Hub service JWT missing or bearer authorization header is malformed'
+  ])
+
+  const invalidLogger = { warn: vi.fn() }
+  await getHubServiceJwtPayloadFromRequest(
+    {
+      headers: { authorization: 'Bearer sensitive-invalid-token' },
+      logger: invalidLogger
+    },
+    options
+  )
+
+  const [diagnostics, message] = invalidLogger.warn.mock.calls[0]
+  assert.equal(message, 'Hub service JWT validation failed')
+  assert.equal(diagnostics.code, 'ERR_JWS_INVALID')
+  assert.equal(
+    JSON.stringify(diagnostics).includes('sensitive-invalid-token'),
+    false
   )
 })
