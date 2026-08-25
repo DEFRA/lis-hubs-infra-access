@@ -1,6 +1,6 @@
 /** @import { Module, ModuleAccess } from './module-access-resolution.js' */
+import Boom from '@hapi/boom'
 import { isPublicRequest } from '../auth/tokens/index.js'
-import { statusCodes } from '../constants/status-codes.js'
 import { hasModuleAccess } from './access.js'
 import { normalizeModuleAccess } from './module-access-resolution.js'
 
@@ -34,10 +34,7 @@ export function createModuleAccessGuard({ assetPath, moduleAccess }) {
             return h.continue
           }
 
-          return h
-            .response({ message: 'Module access denied' })
-            .code(statusCodes.forbidden)
-            .takeover()
+          return Boom.forbidden()
         })
       }
     }
