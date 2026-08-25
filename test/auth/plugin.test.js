@@ -137,6 +137,7 @@ test('login redirects unauthenticated users to their identity provider', async (
 
 test('login returns 503 when the identity provider is unavailable', async () => {
   const error = new Error('offline')
+  error.cause = new Error('getaddrinfo ENOTFOUND identity.example')
   const logger = { error: vi.fn() }
   const { routes } = registerPlugin({
     buildAuthorizationUrl: async () => {
@@ -148,7 +149,14 @@ test('login returns 503 when the identity provider is unavailable', async () => 
 
   await routes[0].handler(request, h)
 
-  assert.deepEqual(logger.error.mock.calls[0], [error])
+  assert.deepEqual(logger.error.mock.calls[0], [
+    {
+      message: 'offline',
+      cause: 'getaddrinfo ENOTFOUND identity.example',
+      stack: error.stack
+    },
+    'Failed to build OIDC authorization URL'
+  ])
   assert.deepEqual(h.result.code.mock.calls[0], [503])
 })
 
