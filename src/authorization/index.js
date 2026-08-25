@@ -1,4 +1,4 @@
-export { AUTHORIZATION_VERSION } from './constants.js'
+export { AUTHORIZATION_VERSION, GLOBAL_CPH_SCOPE } from './constants.js'
 export { resolveAuthorization } from './resolve.js'
 export { hydrateAuthorization } from './hydrate.js'
 export { hasPermission } from './checks.js'

@@ -41,6 +41,7 @@ export { createHoldingService } from './holding-service.js'
 export {
   AUTHORIZATION_VERSION,
   demandPermission,
+  GLOBAL_CPH_SCOPE,
   hasPermission,
   hydrateAuthorization,
   PERMISSIONS,

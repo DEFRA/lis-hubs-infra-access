@@ -2,31 +2,17 @@ import { GLOBAL_CPH_SCOPE } from './constants.js'
 import { resolvedRoleDefinitions } from './roles-loader.js'
 
 /**
- * @param {unknown} sourceRoles
- * @returns {string[]}
- */
-export function normalizeSourceRoles(sourceRoles) {
-  if (!Array.isArray(sourceRoles)) {
-    return []
-  }
-
-  return [...new Set(sourceRoles.filter((role) => typeof role === 'string'))]
-}
-
-/**
- * @param {unknown} assignments
+ * @param {unknown} holdingRoles
  * @returns {Array<{role: string, cph: string}>}
  */
-export function normalizeRoleAssignments(assignments) {
-  if (!Array.isArray(assignments)) {
+export function normalizeHoldingRoles(holdingRoles) {
+  if (!Array.isArray(holdingRoles)) {
     return []
   }
 
-  return assignments.filter(
-    (assignment) =>
-      assignment &&
-      typeof assignment.role === 'string' &&
-      typeof assignment.cph === 'string'
+  return holdingRoles.filter(
+    (grant) =>
+      grant && typeof grant.role === 'string' && typeof grant.cph === 'string'
   )
 }
 

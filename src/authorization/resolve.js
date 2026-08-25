@@ -4,19 +4,41 @@ import {
   DEFAULT_ROLE,
   GLOBAL_CPH_SCOPE
 } from './constants.js'
-import { normalizeRoleAssignments, normalizeSourceRoles } from './normalize.js'
+import { normalizeHoldingRoles } from './normalize.js'
 import { resolvedRoleDefinitions } from './roles-loader.js'
 
 /**
- * Groups translated {role, cph} pairs into one statement per role, with
- * that role's cphs collected into a single list.
- * @param {Array<{role: string, cph: string}>} assignments
- * @returns {Array<{role: string, cphs: string[]}>}
+ * Translates a single source-provider role into its internal LIS role -
+ * either it's already a valid LIS role name (some identity adapters pass
+ * these through directly), or it's a source-specific name mapped via
+ * role-mappings.json.
+ * @param {string} sourceRole
+ * @param {Record<string, string>} mappings
+ * @returns {string|null}
  */
-function groupAssignmentsIntoStatements(assignments) {
+function translateRole(sourceRole, mappings) {
+  if (resolvedRoleDefinitions.has(sourceRole)) {
+    return sourceRole
+  }
+
+  const mappedRole = mappings[sourceRole.toLowerCase()]
+
+  return mappedRole && resolvedRoleDefinitions.has(mappedRole)
+    ? mappedRole
+    : null
+}
+
+/**
+ * Groups translated {role, cph} grants into one statement per role. A role
+ * granted globally (cph '*') anywhere subsumes any CPH-specific grants for
+ * that same role, since the global grant already covers them.
+ * @param {Array<{role: string, cph: string}>} grants
+ * @returns {Array<{role: string, cphs: '*'|string[]}>}
+ */
+function groupHoldingRolesIntoStatements(grants) {
   const cphsByRole = new Map()
 
-  for (const { role, cph } of assignments) {
+  for (const { role, cph } of grants) {
     if (!cphsByRole.has(role)) {
       cphsByRole.set(role, new Set())
     }
@@ -24,62 +46,40 @@ function groupAssignmentsIntoStatements(assignments) {
     cphsByRole.get(role).add(cph)
   }
 
-  return [...cphsByRole].map(([role, cphs]) => ({ role, cphs: [...cphs] }))
+  return [...cphsByRole].map(([role, cphs]) => ({
+    role,
+    cphs: cphs.has(GLOBAL_CPH_SCOPE) ? GLOBAL_CPH_SCOPE : [...cphs]
+  }))
 }
 
 /**
- * Resolves authorization from source identity provider roles and role assignments.
- * Translates external roles into LIS roles and groups them into statements -
- * one per role, scoped to the CPHs it applies to (or '*' for everywhere).
+ * Resolves authorization from a source identity provider's role grants.
+ * Translates external roles into LIS roles and groups them into one
+ * statement per role, scoped to the CPHs it applies to (or '*' for
+ * everywhere).
  * @param {object} params - Authorization resolution parameters.
  * @param {string} params.source - The identity provider source (e.g., 'defra-ci', 'entra-id').
- * @param {string[]} [params.sourceRoles=[]] - Roles from the identity provider, granted everywhere.
- * @param {Array<{role: string, cph: string}>} [params.roleAssignments=[]] - CPH-scoped role assignments.
+ * @param {Array<{role: string, cph: string}>} [params.holdingRoles=[]] - Role grants, each scoped to a CPH or '*' for everywhere.
  * @param {Array} [params.holdings=[]] - Holdings associated with the user.
  * @returns {{authzVersion: number, statements: Array<{role: string, cphs: '*'|string[]}>, holdings: Array}} Resolved authorization object.
  */
 export function resolveAuthorization({
   source,
-  sourceRoles = [],
-  roleAssignments = [],
+  holdingRoles = [],
   holdings = []
 }) {
   const mappings = roleMappings[source] ?? {}
-  const globalRoles = new Set([DEFAULT_ROLE])
 
-  for (const sourceRole of normalizeSourceRoles(sourceRoles)) {
-    if (resolvedRoleDefinitions.has(sourceRole)) {
-      globalRoles.add(sourceRole)
-    }
-
-    const mappedRole = mappings[sourceRole.toLowerCase()]
-
-    if (mappedRole && resolvedRoleDefinitions.has(mappedRole)) {
-      globalRoles.add(mappedRole)
-    }
-  }
-
-  const globalStatements = [...globalRoles].map((role) => ({
-    role,
-    cphs: GLOBAL_CPH_SCOPE
-  }))
-
-  const translatedAssignments = normalizeRoleAssignments(roleAssignments)
-    .map((assignment) => ({
-      role: mappings[assignment.role.toLowerCase()],
-      cph: assignment.cph
-    }))
-    .filter(
-      (assignment) =>
-        assignment.role && resolvedRoleDefinitions.has(assignment.role)
-    )
+  const grants = [
+    { role: DEFAULT_ROLE, cph: GLOBAL_CPH_SCOPE },
+    ...normalizeHoldingRoles(holdingRoles)
+  ]
+    .map(({ role, cph }) => ({ role: translateRole(role, mappings), cph }))
+    .filter((grant) => grant.role !== null)
 
   return {
     authzVersion: AUTHORIZATION_VERSION,
-    statements: [
-      ...globalStatements,
-      ...groupAssignmentsIntoStatements(translatedAssignments)
-    ],
+    statements: groupHoldingRolesIntoStatements(grants),
     holdings: Array.isArray(holdings) ? holdings : []
   }
 }
