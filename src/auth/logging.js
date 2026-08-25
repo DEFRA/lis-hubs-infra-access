@@ -18,13 +18,15 @@ export function logMissingHubServiceJwt(request) {
  * @param {Error & { code?: string, claim?: string, reason?: string }} error Validation error.
  */
 export function logInvalidHubServiceJwt(request, error) {
-  request.logger?.warn?.(
-    {
-      code: error?.code,
-      claim: error?.claim,
-      reason: error?.reason,
-      message: error?.message
-    },
-    'Hub service JWT validation failed'
-  )
+  const diagnostics = [
+    ['code', error?.code],
+    ['claim', error?.claim],
+    ['reason', error?.reason],
+    ['message', error?.message]
+  ]
+    .filter(([, value]) => value !== undefined)
+    .map(([name, value]) => `${name}=${value}`)
+    .join(' | ')
+
+  request.logger?.warn?.(`Hub service JWT validation failed [${diagnostics}]`)
 }
