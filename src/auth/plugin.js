@@ -46,13 +46,11 @@ function createLoginController({
           resolvedProviderId
         )
       } catch (error) {
+        const cause =
+          error?.cause?.message ?? error?.cause?.code ?? error?.cause
         request.logger?.error?.(
-          {
-            message: error?.message,
-            cause: error?.cause?.message ?? error?.cause?.code ?? error?.cause,
-            stack: error?.stack
-          },
-          'Failed to build OIDC authorization URL'
+          error,
+          `Failed to build OIDC authorization URL [cause=${cause}]`
         )
 
         return h

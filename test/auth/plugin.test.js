@@ -150,12 +150,8 @@ test('login returns 503 when the identity provider is unavailable', async () => 
   await routes[0].handler(request, h)
 
   assert.deepEqual(logger.error.mock.calls[0], [
-    {
-      message: 'offline',
-      cause: 'getaddrinfo ENOTFOUND identity.example',
-      stack: error.stack
-    },
-    'Failed to build OIDC authorization URL'
+    error,
+    'Failed to build OIDC authorization URL [cause=getaddrinfo ENOTFOUND identity.example]'
   ])
   assert.deepEqual(h.result.code.mock.calls[0], [503])
 })
