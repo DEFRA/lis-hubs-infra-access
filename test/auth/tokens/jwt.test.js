@@ -220,8 +220,7 @@ test('logs safe diagnostics when hub-service authentication fails', async () => 
   )
 
   expect(missingLogger.warn).toHaveBeenCalledWith(
-    { authorizationHeaderPresent: false },
-    'Hub service JWT missing or bearer authorization header is malformed'
+    'Hub service JWT missing or bearer authorization header is malformed [authorizationHeaderPresent=false]'
   )
 
   const invalidLogger = { warn: vi.fn() }
@@ -233,12 +232,11 @@ test('logs safe diagnostics when hub-service authentication fails', async () => 
     options
   )
 
-  const [diagnostics, message] = invalidLogger.warn.mock.calls[0]
-  expect(message).toBe('Hub service JWT validation failed')
-  expect(diagnostics.code).toBe('ERR_JWS_INVALID')
-  expect(JSON.stringify(diagnostics).includes('sensitive-invalid-token')).toBe(
-    false
+  const [message] = invalidLogger.warn.mock.calls[0]
+  expect(message).toMatch(
+    /Hub service JWT validation failed \[code=ERR_JWS_INVALID \| message=/
   )
+  expect(message).not.toContain('sensitive-invalid-token')
 })
 
 test('service-token verification rejects the wrong subject, taxonomy and spoke', async () => {

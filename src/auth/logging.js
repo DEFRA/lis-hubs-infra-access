@@ -3,12 +3,10 @@
  * @param {object} request Hapi request.
  */
 export function logMissingHubServiceJwt(request) {
+  const headerPresent = typeof request.headers?.authorization === 'string'
+
   request.logger?.warn?.(
-    {
-      authorizationHeaderPresent:
-        typeof request.headers?.authorization === 'string'
-    },
-    'Hub service JWT missing or bearer authorization header is malformed'
+    `Hub service JWT missing or bearer authorization header is malformed [authorizationHeaderPresent=${headerPresent}]`
   )
 }
 
