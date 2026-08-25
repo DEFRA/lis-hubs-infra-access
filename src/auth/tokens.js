@@ -8,6 +8,7 @@ import {
   AUTHORIZATION_VERSION,
   hydrateAuthorization
 } from '../authorization.js'
+import { logInvalidHubServiceJwt, logMissingHubServiceJwt } from './logging.js'
 
 const statusCodes = {
   unauthorized: 401
@@ -395,6 +396,7 @@ export async function getHubServiceJwtPayloadFromRequest(
   const token = getAuthorizationBearerToken(request)
 
   if (!token) {
+    logMissingHubServiceJwt(request)
     return null
   }
 
@@ -406,7 +408,8 @@ export async function getHubServiceJwtPayloadFromRequest(
       taxonomyId,
       spokeId
     })
-  } catch {
+  } catch (error) {
+    logInvalidHubServiceJwt(request, error)
     return null
   }
 }
