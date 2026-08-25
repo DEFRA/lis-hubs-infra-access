@@ -5,7 +5,13 @@ import { hasPermission } from '../../src/authorization/checks.js'
 test('CPH-scoped statements match only their own CPH', () => {
   // Arrange
   const authorization = {
-    statements: [{ role: 'lis-role-cattle-read', cphs: ['10/081/1234'] }]
+    statements: [
+      {
+        role: 'lis-role-cattle-read',
+        cphs: ['10/081/1234'],
+        permissions: ['lis-perm-cattle-read']
+      }
+    ]
   }
 
   // Act
@@ -26,7 +32,13 @@ test('CPH-scoped statements match only their own CPH', () => {
 test('global statements match regardless of the CPH asked about', () => {
   // Arrange
   const authorization = {
-    statements: [{ role: 'lis-role-cattle-read', cphs: '*' }]
+    statements: [
+      {
+        role: 'lis-role-cattle-read',
+        cphs: '*',
+        permissions: ['lis-perm-cattle-read']
+      }
+    ]
   }
 
   // Act
@@ -47,8 +59,12 @@ test('does not grant an unknown permission', () => {
   // Arrange
   const authorization = {
     statements: [
-      { role: 'lis-role-reader', cphs: '*' },
-      { role: 'lis-role-cattle-read', cphs: ['10/081/1234'] }
+      { role: 'lis-role-reader', cphs: '*', permissions: [] },
+      {
+        role: 'lis-role-cattle-read',
+        cphs: ['10/081/1234'],
+        permissions: ['lis-perm-cattle-read']
+      }
     ]
   }
 
@@ -64,7 +80,13 @@ test('does not grant an unknown permission', () => {
 test('does not grant a scoped permission for a missing or different CPH', () => {
   // Arrange
   const authorization = {
-    statements: [{ role: 'lis-role-cattle-read', cphs: ['10/081/1234'] }]
+    statements: [
+      {
+        role: 'lis-role-cattle-read',
+        cphs: ['10/081/1234'],
+        permissions: ['lis-perm-cattle-read']
+      }
+    ]
   }
 
   // Act
@@ -79,4 +101,27 @@ test('does not grant a scoped permission for a missing or different CPH', () => 
   // Assert
   expect(mismatchedCphResult).toBe(false)
   expect(missingCphResult).toBe(false)
+})
+
+test('returns false when authorization is null', () => {
+  // Arrange
+  const authorization = null
+
+  // Act
+  const result = hasPermission(authorization, {
+    permission: 'lis-perm-cattle-read'
+  })
+
+  // Assert
+  expect(result).toBe(false)
+})
+
+test('returns false when authorization is undefined', () => {
+  // Act
+  const result = hasPermission(undefined, {
+    permission: 'lis-perm-cattle-read'
+  })
+
+  // Assert
+  expect(result).toBe(false)
 })

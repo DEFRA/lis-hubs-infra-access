@@ -59,7 +59,11 @@ test('permission demand denies a user without the required permission', () => {
   // Arrange
   const h = createToolkit()
   const request = {
-    app: { hubAuth: { statements: [{ role: 'lis-role-reader', cphs: '*' }] } },
+    app: {
+      hubAuth: {
+        statements: [{ role: 'lis-role-reader', cphs: '*', permissions: [] }]
+      }
+    },
     params: { cph: '10/081/1234' }
   }
   const demand = demandPermission({
@@ -83,7 +87,13 @@ test('permission demand denies a user with the permission granted for another CP
   const request = {
     app: {
       hubAuth: {
-        statements: [{ role: 'lis-role-cattle-read', cphs: ['10/081/1234'] }]
+        statements: [
+          {
+            role: 'lis-role-cattle-read',
+            cphs: ['10/081/1234'],
+            permissions: ['lis-perm-cattle-read']
+          }
+        ]
       }
     },
     params: { cph: '10/081/9999' }
@@ -103,12 +113,35 @@ test('permission demand denies a user with the permission granted for another CP
   expect(h.result.takenOver).toBe(true)
 })
 
+test('permission demand denies an unauthenticated request', () => {
+  // Arrange
+  const h = createToolkit()
+  const request = { app: { hubAuth: null } }
+  const demand = demandPermission({ permission: 'lis-perm-cattle-read' })
+
+  // Act
+  const result = demand(request, h)
+
+  // Assert
+  expect(result).toBe(h.result)
+  expect(h.result.payload).toEqual({ message: 'Permission denied' })
+  expect(h.result.statusCode).toBe(403)
+})
+
 test('permission demand continues when the requirement is met', () => {
   // Arrange
   const h = createToolkit()
   const request = {
     app: {
-      hubAuth: { statements: [{ role: 'lis-role-caseworker', cphs: '*' }] }
+      hubAuth: {
+        statements: [
+          {
+            role: 'lis-role-caseworker',
+            cphs: '*',
+            permissions: ['lis-perm-cattle-read']
+          }
+        ]
+      }
     }
   }
 
