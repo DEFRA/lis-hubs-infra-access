@@ -1,4 +1,10 @@
-import { expect, test, vi } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest'
+
+const { logger } = vi.hoisted(() => ({
+  logger: { warn: vi.fn() }
+}))
+
+vi.mock('@defra/lis-hubs-infra-core', () => ({ logger }))
 
 import {
   createSpokeAuthToken,
@@ -8,6 +14,10 @@ import {
   verifyHubJwt,
   verifyHubServiceJwt
 } from '../../../src/auth/tokens/jwt.js'
+
+afterEach(() => {
+  vi.clearAllMocks()
+})
 
 const jwtConfig = {
   secret: 'test-hub-secret-please-change-1234567890',
@@ -212,27 +222,19 @@ test('logs safe diagnostics when hub-service authentication fails', async () => 
     taxonomyId: 'status',
     spokeId: 'cattle-status'
   }
-  const missingLogger = { warn: vi.fn() }
+  await getHubServiceJwtPayloadFromRequest({ headers: {} }, options)
 
-  await getHubServiceJwtPayloadFromRequest(
-    { headers: {}, logger: missingLogger },
-    options
-  )
-
-  expect(missingLogger.warn).toHaveBeenCalledWith(
+  expect(logger.warn).toHaveBeenCalledWith(
     'Hub service JWT missing or bearer authorization header is malformed [authorizationHeaderPresent=false]'
   )
+  logger.warn.mockClear()
 
-  const invalidLogger = { warn: vi.fn() }
   await getHubServiceJwtPayloadFromRequest(
-    {
-      headers: { authorization: 'Bearer sensitive-invalid-token' },
-      logger: invalidLogger
-    },
+    { headers: { authorization: 'Bearer sensitive-invalid-token' } },
     options
   )
 
-  const [message] = invalidLogger.warn.mock.calls[0]
+  const [message] = logger.warn.mock.calls[0]
   expect(message).toMatch(
     /Hub service JWT validation failed \[code=ERR_JWS_INVALID \| message=/
   )

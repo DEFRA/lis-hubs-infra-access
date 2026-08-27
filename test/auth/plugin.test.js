@@ -1,10 +1,20 @@
 import assert from 'node:assert/strict'
-import { test, vi } from 'vitest'
+import { afterEach, test, vi } from 'vitest'
+
+const { logger } = vi.hoisted(() => ({
+  logger: { error: vi.fn() }
+}))
+
+vi.mock('@defra/lis-hubs-infra-core', () => ({ logger }))
 
 import {
   createHubAuthPlugin,
   createHubCookieOptions
 } from '../../src/auth/plugin.js'
+
+afterEach(() => {
+  vi.clearAllMocks()
+})
 
 const jwtConfig = {
   secret: 'test-hub-secret-please-change-1234567890',
@@ -138,13 +148,12 @@ test('login redirects unauthenticated users to their identity provider', async (
 test('login returns 503 when the identity provider is unavailable', async () => {
   const error = new Error('offline')
   error.cause = new Error('getaddrinfo ENOTFOUND identity.example')
-  const logger = { error: vi.fn() }
   const { routes } = registerPlugin({
     buildAuthorizationUrl: async () => {
       throw error
     }
   })
-  const request = { ...createRequest(), logger }
+  const request = createRequest()
   const h = createToolkit()
 
   await routes[0].handler(request, h)
