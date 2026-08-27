@@ -1,3 +1,5 @@
+import { logger } from '@defra/lis-hubs-infra-core'
+
 import {
   clearHubAuthSession,
   getHubAuthSession,
@@ -48,7 +50,7 @@ function createLoginController({
       } catch (error) {
         const cause =
           error?.cause?.message ?? error?.cause?.code ?? error?.cause
-        request.logger?.error?.(
+        logger.error(
           error,
           `Failed to build OIDC authorization URL [cause=${cause}]`
         )

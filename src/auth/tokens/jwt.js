@@ -196,7 +196,7 @@ export async function getHubServiceJwtPayloadFromRequest(
       spokeId
     })
   } catch (error) {
-    logInvalidHubServiceJwt(request, error)
+    logInvalidHubServiceJwt(error)
     return null
   }
 }
