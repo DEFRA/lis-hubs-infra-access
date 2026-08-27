@@ -33,7 +33,7 @@
   "author": "Defra DDTS",
   "license": "OGL-UK-3.0",
   "dependencies": {
-    "@defra/lis-hubs-infra-core": "^0.2.0",
+    "@defra/lis-hubs-infra-core": "^0.4.0",
     "@defra/lis-hubs-infra-registry": "^0.1.0",
     "jose": "6.2.8",
     "eslint-plugin-jsdoc": "^63.0.8",
