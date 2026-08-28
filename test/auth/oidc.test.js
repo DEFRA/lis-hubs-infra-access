@@ -6,7 +6,12 @@ const jose = vi.hoisted(() => ({
   jwtVerify: vi.fn()
 }))
 
+const { logger } = vi.hoisted(() => ({
+  logger: { context: { set: vi.fn() } }
+}))
+
 vi.mock('jose', () => jose)
+vi.mock('@defra/lis-hubs-infra-core', () => ({ logger }))
 
 import { createOidcClient } from '../../src/auth/oidc.js'
 
@@ -297,6 +302,78 @@ test('completes an authorization code grant and clears the flow', async () => {
     'remote-jwks',
     { issuer: metadata.issuer, audience: providerConfig.clientId }
   ])
+})
+
+test('hashes and stores the mapped user email in logger context', async () => {
+  // Arrange
+  const fetch = mockDiscovery()
+  const values = new Map([
+    [
+      'hub-auth-flow',
+      {
+        state: 'expected-state',
+        nonce: 'expected-nonce',
+        codeVerifier: 'verifier',
+        providerId: 'entra'
+      }
+    ]
+  ])
+  const request = createRequest(values)
+  request.query = { state: 'expected-state', code: 'authorization-code' }
+  fetch.mockResolvedValueOnce({ ok: true, json: async () => metadata })
+  fetch.mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({ id_token: 'id-token' })
+  })
+  jose.jwtVerify.mockResolvedValue({
+    payload: {
+      sub: 'user-1',
+      email: 'user@example.com',
+      nonce: 'expected-nonce'
+    }
+  })
+
+  // Act
+  await createClient().completeAuthorizationCodeGrant(request)
+
+  // Assert
+  assert.deepEqual(logger.context.set.mock.calls[0], [
+    'user_email_hash',
+    'user@example.com',
+    true
+  ])
+})
+
+test('does not touch logger context when the mapped user has no email', async () => {
+  // Arrange
+  const fetch = mockDiscovery()
+  const values = new Map([
+    [
+      'hub-auth-flow',
+      {
+        state: 'expected-state',
+        nonce: 'expected-nonce',
+        codeVerifier: 'verifier',
+        providerId: 'entra'
+      }
+    ]
+  ])
+  const request = createRequest(values)
+  request.query = { state: 'expected-state', code: 'authorization-code' }
+  fetch.mockResolvedValueOnce({ ok: true, json: async () => metadata })
+  fetch.mockResolvedValueOnce({
+    ok: true,
+    json: async () => ({ id_token: 'id-token' })
+  })
+  jose.jwtVerify.mockResolvedValue({
+    payload: { sub: 'user-1', nonce: 'expected-nonce' }
+  })
+
+  // Act
+  await createClient().completeAuthorizationCodeGrant(request)
+
+  // Assert
+  assert.equal(logger.context.set.mock.calls.length, 0)
 })
 
 test('rejects invalid token responses and identity claims', async () => {

@@ -10,6 +10,7 @@ import {
   setHubAuthFlow
 } from './session.js'
 import { getReturnUrlFromRequest, sanitizeReturnUrl } from './tokens/index.js'
+import { logger } from '@defra/lis-hubs-infra-core'
 
 async function fetchJson(url, options = {}) {
   const response = await fetch(url, options)
@@ -255,6 +256,9 @@ function createAuthorizationCodeCompleter({
       providerId: providerConfig.providerId,
       providerConfig
     })
+    if (user.email) {
+      logger.context.set('user_email_hash', user.email, true)
+    }
     const authSession = {
       ...user,
       idToken: tokens.id_token,
