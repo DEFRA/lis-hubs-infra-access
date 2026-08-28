@@ -1,4 +1,5 @@
 /** @import { Permission } from '../constants/permissions.js' */
+/** @import { HydratedAuthorization } from './types.js' */
 import { GLOBAL_CPH_SCOPE } from './constants.js'
 
 /**
@@ -19,7 +20,7 @@ function matchesCphScope(cphs, cph) {
  * permission, optionally scoped to a CPH. Expects statements to already
  * carry a `permissions` array, as attached by hydrateAuthorization() at
  * the session/JWT boundary - callers should not re-hydrate per check.
- * @param {object} authorization - A hydrated authorization object.
+ * @param {HydratedAuthorization} authorization - A hydrated authorization object.
  * @param {object} [params={}] - Permission check parameters.
  * @param {Permission} [params.permission] - The LIS permission to check for.
  * @param {string} [params.cph] - The CPH scope for the permission check (if applicable).
