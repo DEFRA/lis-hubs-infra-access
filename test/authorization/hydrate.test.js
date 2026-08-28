@@ -1,7 +1,37 @@
-import { expect, test } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest'
+
+const { logger } = vi.hoisted(() => ({
+  logger: { context: { set: vi.fn() } }
+}))
+
+vi.mock('@defra/lis-hubs-infra-core', () => ({ logger }))
 
 import { hydrateAuthorization } from '../../src/authorization/hydrate.js'
 import { hasPermission } from '../../src/authorization/checks.js'
+
+afterEach(() => {
+  vi.clearAllMocks()
+})
+
+test('hashes and stores the email in logger context when present', () => {
+  // Act
+  hydrateAuthorization({ email: 'user@example.com', statements: [] })
+
+  // Assert
+  expect(logger.context.set).toHaveBeenCalledWith(
+    'user_email_hash',
+    'user@example.com',
+    true
+  )
+})
+
+test('does not touch logger context when no email is present', () => {
+  // Act
+  hydrateAuthorization({ statements: [] })
+
+  // Assert
+  expect(logger.context.set).not.toHaveBeenCalled()
+})
 
 test('permissions are rehydrated locally from LIS roles', () => {
   // Arrange
