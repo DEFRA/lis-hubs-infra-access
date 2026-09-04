@@ -25,6 +25,63 @@ direct-port requests to the microsite's configured `basePath` and sends that
 relative path to the front-office login route. Relative return URLs prevent an
 untrusted host header from becoming an authentication redirect target.
 
+## Application route authentication modes
+
+Application modules use user-session authentication by default. Hub-service
+authentication is applied to individual routes only; whole modules and
+taxonomies must not be configured as hub-service authenticated.
+
+### `user-session`
+
+This is the default mode and does not normally need to be declared on a route.
+The request must contain a valid hub session cookie. If it does not, the guard
+redirects the browser to the appropriate hub login route.
+
+```js
+server.route({
+  method: 'GET',
+  path: '/',
+  handler
+})
+```
+
+### `hub-service`
+
+Use this mode for an internal interface that a hub calls directly, such as a
+summary-data endpoint. Mark only the relevant route with
+`app.authMode: 'hub-service'`:
+
+```js
+server.route({
+  method: 'GET',
+  path: '/summary-data',
+  options: {
+    app: { authMode: 'hub-service' }
+  },
+  handler
+})
+```
+
+The application must also enable route-aware hub-service authentication when
+it creates its spoke guard:
+
+```js
+const authGuard = createSpokeGuard({
+  // Standard spoke guard configuration...
+  allowHubServiceRoutes: true
+})
+```
+
+The calling hub sends a bearer token created with `createSpokeAuthToken`. The
+guard validates its signature, issuer, audience, expiry, authorization model
+version, `hub-service` subject, taxonomy, and spoke ID. A missing or invalid
+token receives `401 Unauthorized`; a hub session cookie alone does not grant
+access to a route marked `hub-service`.
+
+Unmarked routes continue to use `user-session` authentication when
+`allowHubServiceRoutes` is enabled. Do not set a module or taxonomy access mode
+to `hub-service` to expose an internal interface.
+
 This package should depend on hub facts from `@defra/lis-hubs-infra-registry`, not on deployable hub policy.
 
 Current implementation notes:

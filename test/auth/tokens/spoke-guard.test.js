@@ -21,160 +21,6 @@ const jwtConfig = {
   ttlSeconds: 3600
 }
 
-test('createSpokeGuard rehydrates permissions from hub-service JWT roles (hubOrigins array)', async () => {
-  const guard = createSpokeGuard({
-    spokeId: 'cattle-status',
-    hubOrigins: ['http://localhost:3000'],
-    cookieName: 'livestock_hub_jwt',
-    cookieOptions: getHubJwtCookieOptions({
-      ttlSeconds: jwtConfig.ttlSeconds,
-      isSecure: false
-    }),
-    assetPath: '/public',
-    port: 3210,
-    secret: jwtConfig.secret,
-    audience: jwtConfig.audience
-  })
-
-  const bearerToken = await createSpokeAuthToken(
-    {
-      taxonomyId: 'status',
-      spokeId: 'cattle-status',
-      user: {
-        sub: 'test-user',
-        email: 'test.user@example.com',
-        firstName: 'Test',
-        lastName: 'User',
-        statements: [{ role: 'lis-role-caseworker', cphs: '*' }]
-      }
-    },
-    jwtConfig
-  )
-
-  let onPreAuthHandler
-  await guard.plugin.register(
-    {
-      ext(event, handler) {
-        expect(event).toBe('onPreAuth')
-        onPreAuthHandler = handler
-      }
-    },
-    {}
-  )
-
-  const request = {
-    path: '/',
-    headers: {
-      authorization: bearerToken
-    },
-    app: {}
-  }
-  const h = {
-    continue: Symbol('continue'),
-    response() {
-      throw new Error('response should not be called')
-    }
-  }
-
-  const result = await onPreAuthHandler(request, h)
-
-  expect(result).toBe(h.continue)
-  expect(request.app.hubAuth).toEqual({
-    sub: 'test-user',
-    email: 'test.user@example.com',
-    firstName: 'Test',
-    lastName: 'User',
-    authzVersion: 1,
-    statements: [
-      {
-        role: 'lis-role-caseworker',
-        cphs: '*',
-        permissions: [
-          'lis-perm-cattle-read',
-          'lis-perm-cattle-register-write',
-          'lis-perm-sheep-read'
-        ]
-      }
-    ]
-  })
-})
-
-test('createSpokeGuard rehydrates permissions from hub-service JWT roles (single hubOrigin)', async () => {
-  const guard = createSpokeGuard({
-    spokeId: 'cattle-status',
-    hubOrigin: 'http://localhost:3000',
-    cookieName: 'livestock_hub_jwt',
-    cookieOptions: getHubJwtCookieOptions({
-      ttlSeconds: jwtConfig.ttlSeconds,
-      isSecure: false
-    }),
-    assetPath: '/public',
-    port: 3210,
-    secret: jwtConfig.secret,
-    issuer: jwtConfig.issuer,
-    audience: jwtConfig.audience
-  })
-  const bearerToken = await createSpokeAuthToken(
-    {
-      taxonomyId: 'status',
-      spokeId: 'cattle-status',
-      user: {
-        sub: 'test-user',
-        email: 'test.user@example.com',
-        firstName: 'Test',
-        lastName: 'User',
-        statements: [{ role: 'lis-role-caseworker', cphs: '*' }]
-      }
-    },
-    jwtConfig
-  )
-  let onPreAuthHandler
-  await guard.plugin.register(
-    {
-      ext(event, handler) {
-        expect(event).toBe('onPreAuth')
-        onPreAuthHandler = handler
-      }
-    },
-    {}
-  )
-  const request = {
-    path: '/',
-    headers: {
-      authorization: bearerToken
-    },
-    app: {}
-  }
-  const h = {
-    continue: Symbol('continue'),
-    response() {
-      throw new Error('response should not be called')
-    }
-  }
-
-  const result = await onPreAuthHandler(request, h)
-
-  expect(result).toBe(h.continue)
-  expect(request.app.hubAuth).toEqual({
-    sub: 'test-user',
-    email: 'test.user@example.com',
-    firstName: 'Test',
-    lastName: 'User',
-    authzVersion: 1,
-    statements: [
-      {
-        role: 'lis-role-caseworker',
-        cphs: '*',
-        permissions: [
-          'lis-perm-cattle-read',
-          'lis-perm-cattle-register-write',
-          'lis-perm-sheep-read'
-        ]
-      }
-    ]
-  })
-})
-
 test('createSpokeGuard supports hub-service authentication on marked user-session routes (hubOrigins array)', async () => {
   const guard = createSpokeGuard({
     spokeId: 'cattle-home',
@@ -240,10 +86,10 @@ test('createSpokeGuard supports hub-service authentication on marked user-sessio
   ).toEqual(['lis-perm-front-office', 'lis-perm-cattle-read'])
 })
 
-test('createSpokeGuard supports hub-service authentication on marked user-session routes (single hubOrigin)', async () => {
+test('createSpokeGuard hydrates a minimal actor on a marked hub-service route', async () => {
   const guard = createSpokeGuard({
     spokeId: 'cattle-home',
-    hubOrigin: 'http://localhost:3000',
+    hubOrigins: ['http://localhost:3000'],
     cookieName: 'livestock_hub_jwt',
     cookieOptions: getHubJwtCookieOptions({
       ttlSeconds: jwtConfig.ttlSeconds,
@@ -253,7 +99,6 @@ test('createSpokeGuard supports hub-service authentication on marked user-sessio
     port: 3221,
     basePath: '/cattle/home',
     secret: jwtConfig.secret,
-    issuer: jwtConfig.issuer,
     audience: jwtConfig.audience,
     allowHubServiceRoutes: true
   })
@@ -304,9 +149,9 @@ test('createSpokeGuard supports hub-service authentication on marked user-sessio
   ).toEqual(['lis-perm-front-office', 'lis-perm-cattle-read'])
 })
 
-test('createSpokeGuard returns a hub-service guard for status spokes', () => {
+test('createSpokeGuard returns a route-aware guard only when enabled', () => {
   const options = {
-    spokeId: 'cattle-status',
+    spokeId: 'cattle-home',
     hubOrigins: ['http://localhost:3000'],
     cookieName: 'livestock_hub_jwt',
     cookieOptions: getHubJwtCookieOptions({
@@ -314,14 +159,16 @@ test('createSpokeGuard returns a hub-service guard for status spokes', () => {
       isSecure: false
     }),
     assetPath: '/public',
-    port: 3210,
+    port: 3221,
+    basePath: '/cattle/home',
     secret: jwtConfig.secret,
-    audience: jwtConfig.audience
+    audience: jwtConfig.audience,
+    allowHubServiceRoutes: true
   }
 
   const guard = createSpokeGuard(options)
 
-  expect(guard.plugin.name).toBe('hubServiceGuard')
+  expect(guard.plugin.name).toBe('routeAwareAuthGuard')
 })
 
 test('createSpokeGuard returns a user-session guard for move spokes', () => {
@@ -348,7 +195,7 @@ test('rejects an unknown spoke configuration', () => {
   )
 })
 
-test('prints the effective auth guard for each spoke', () => {
+test('all current spokes default to user-session authentication', () => {
   const guardByAccessMode = {
     public: 'none',
     'user-session': 'authGuard',
@@ -364,13 +211,9 @@ test('prints the effective auth guard for each spoke', () => {
 
   console.table(rows)
 
-  const statusGuards = rows
-    .filter(({ taxonomyId }) => taxonomyId === 'status')
-    .map(({ guard }) => guard)
-  const nonStatusGuards = rows
-    .filter(({ taxonomyId }) => taxonomyId !== 'status')
-    .map(({ guard }) => guard)
-
-  expect([...new Set(statusGuards)]).toEqual(['hubServiceGuard'])
-  expect([...new Set(nonStatusGuards)]).toEqual(['authGuard'])
+  expect(rows).not.toHaveLength(0)
+  expect([...new Set(rows.map(({ accessMode }) => accessMode))]).toEqual([
+    'user-session'
+  ])
+  expect([...new Set(rows.map(({ guard }) => guard))]).toEqual(['authGuard'])
 })

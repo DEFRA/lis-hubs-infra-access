@@ -26,8 +26,8 @@ test('resolveAccessMode returns the most restrictive mode', () => {
   expect(hubServiceVsPublic).toBe('hub-service')
 })
 
-test('getCurrentSpokeAccessMode resolves the current status spoke to hub-service', () => {
-  expect(getCurrentSpokeAccessMode('cattle-status')).toBe('hub-service')
+test('getCurrentSpokeAccessMode defaults current spokes to user-session', () => {
+  expect(getCurrentSpokeAccessMode('cattle-home')).toBe('user-session')
   expect(getCurrentSpokeAccessMode('cattle-move')).toBe('user-session')
 })
 
