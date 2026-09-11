@@ -99,7 +99,7 @@ test('registers auth state, middleware and login lifecycle routes', () => {
   assert.equal(plugin.plugin.name, 'hub-auth')
   assert.deepEqual(
     routes.map(({ path }) => path),
-    ['/auth/login', '/sso', '/auth/logout']
+    ['/auth/login', '/sso', '/auth/logout', '/signout']
   )
   assert.deepEqual(state.mock.calls[0], ['hub-jwt', { isSecure: false }])
 })
@@ -219,4 +219,14 @@ test('logout clears auth state and removes the JWT cookie', async () => {
   ])
   assert.equal(request.yar.get('hub-auth-session'), undefined)
   assert.equal(request.yar.get('hub-auth-flow'), undefined)
+})
+
+test('signout redirects to the logout route', () => {
+  const request = createRequest()
+  const h = createToolkit()
+  const { routes } = registerPlugin()
+
+  routes[3].handler(request, h)
+
+  assert.equal(h.redirect.mock.calls[0][0], '/auth/logout')
 })

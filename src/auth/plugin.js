@@ -218,6 +218,15 @@ export function createHubAuthPlugin({
             method: 'GET',
             path: '/auth/logout',
             ...logoutController
+          },
+          {
+            // The shared nunjucks layout's header nav links here (see
+            // createNunjucksContextBuilder's logoutUrl default).
+            method: 'GET',
+            path: '/signout',
+            handler(_request, h) {
+              return h.redirect('/auth/logout')
+            }
           }
         ])
       }
