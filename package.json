@@ -10,7 +10,8 @@
   "exports": {
     ".": "./src/module-access/index.js",
     "./auth": "./src/auth.js",
-    "./ish-client": "./src/identity-service-helper-client.js"
+    "./ish-client": "./src/identity-service-helper-client.js",
+    "./krds-client": "./src/krds-client.js"
   },
   "files": [
     "src"
