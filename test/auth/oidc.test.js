@@ -219,9 +219,9 @@ test('omits provider-specific parameters when no service id is configured', asyn
 test('validates an authorization callback before exchanging tokens', async () => {
   const client = createClient()
 
-  await assert.rejects(
-    client.completeAuthorizationCodeGrant(createRequest()),
-    /Authentication flow session was not found/
+  assert.deepEqual(
+    await client.completeAuthorizationCodeGrant(createRequest()),
+    { stale: true }
   )
 
   const values = new Map([
@@ -237,10 +237,9 @@ test('validates an authorization callback before exchanging tokens', async () =>
   ])
   const request = createRequest(values)
   request.query.state = 'wrong-state'
-  await assert.rejects(
-    client.completeAuthorizationCodeGrant(request),
-    /State mismatch/
-  )
+  assert.deepEqual(await client.completeAuthorizationCodeGrant(request), {
+    stale: true
+  })
 
   request.query.state = 'expected-state'
   await assert.rejects(
