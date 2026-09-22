@@ -2,6 +2,7 @@ import { logger } from '@defra/lis-hubs-infra-core'
 
 import {
   clearHubAuthSession,
+  getHubAuthFlow,
   getHubAuthSession,
   setHubAuthSession
 } from './session.js'
@@ -67,12 +68,19 @@ function createLoginController({
   }
 }
 
+function isStaleAuthorizationResponse(request) {
+  const authFlow = getHubAuthFlow(request)
+
+  return !authFlow?.state || request.query?.state !== authFlow.state
+}
+
 function createCallbackController({
   getCookieOptions,
   getHubJwtConfig,
   getHubJwtCookieName,
   completeAuthorizationCodeGrant,
-  resolveAuthSession
+  resolveAuthSession,
+  loginPath
 }) {
   return {
     options: {
@@ -81,6 +89,14 @@ function createCallbackController({
     async handler(request, h) {
       if (request.query?.error) {
         throw new Error(request.query?.error_description ?? request.query.error)
+      }
+
+      // A replayed identity provider page (e.g. browser back button after
+      // signing in) returns a state the hub no longer holds. Restarting
+      // login sends an already-authenticated user straight on and gives
+      // anyone else a fresh flow, instead of failing the callback.
+      if (isStaleAuthorizationResponse(request)) {
+        return h.redirect(loginPath)
       }
 
       const { user, authSession, accessToken, returnUrl } =
@@ -172,7 +188,8 @@ export function createHubAuthPlugin({
     getHubJwtConfig,
     getHubJwtCookieName,
     completeAuthorizationCodeGrant,
-    resolveAuthSession
+    resolveAuthSession,
+    loginPath: loginRoutes[0].path
   })
   const logoutController = createLogoutController({
     getCookieOptions,
