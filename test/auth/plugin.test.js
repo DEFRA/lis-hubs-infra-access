@@ -195,34 +195,20 @@ test('callback enriches and stores the session before setting its JWT', async ()
   })
 })
 
-test('callback restarts login when no authentication flow is pending', async () => {
-  const completeAuthorizationCodeGrant = vi.fn(async () => ({}))
-  const { routes } = registerPlugin({ completeAuthorizationCodeGrant })
-  const request = createRequest(
-    new Map([['hub-auth-session', { sub: 'user-1' }]])
-  )
+test('callback restarts login when the grant reports a stale response', async () => {
+  const resolveAuthSession = vi.fn(async () => ({}))
+  const { routes } = registerPlugin({
+    completeAuthorizationCodeGrant: async () => ({ stale: true }),
+    resolveAuthSession
+  })
+  const request = createRequest()
   request.query = { code: 'code-1', state: 'stale-state' }
   const h = createToolkit()
 
   await routes[1].handler(request, h)
 
   assert.equal(h.redirect.mock.calls[0][0], '/auth/login')
-  assert.equal(completeAuthorizationCodeGrant.mock.calls.length, 0)
-})
-
-test('callback restarts login when the returned state does not match the pending flow', async () => {
-  const completeAuthorizationCodeGrant = vi.fn(async () => ({}))
-  const { routes } = registerPlugin({ completeAuthorizationCodeGrant })
-  const request = createRequest(
-    new Map([['hub-auth-flow', { state: 'state-1' }]])
-  )
-  request.query = { code: 'code-1', state: 'stale-state' }
-  const h = createToolkit()
-
-  await routes[1].handler(request, h)
-
-  assert.equal(h.redirect.mock.calls[0][0], '/auth/login')
-  assert.equal(completeAuthorizationCodeGrant.mock.calls.length, 0)
+  assert.equal(resolveAuthSession.mock.calls.length, 0)
 })
 
 test('callback surfaces errors returned by the identity provider', async () => {

@@ -176,6 +176,12 @@ function resolveAuthorizationFlow(request, getPrimaryProviderId) {
   return { authFlow, providerId }
 }
 
+function isStaleAuthorizationResponse(request) {
+  const authFlow = getHubAuthFlow(request)
+
+  return !authFlow?.state || request.query?.state !== authFlow.state
+}
+
 function validateAuthorizationResponse(request, authFlow) {
   if (request.query?.state !== authFlow.state) {
     throw new Error('State mismatch')
@@ -234,6 +240,13 @@ function createAuthorizationCodeCompleter({
   mapUser
 }) {
   return async function completeAuthorizationCodeGrant(request) {
+    // A replayed authorization response carries a state the hub no longer
+    // holds. Report it to the caller rather than throwing, so the hub can
+    // restart login instead of failing the callback.
+    if (isStaleAuthorizationResponse(request)) {
+      return { stale: true }
+    }
+
     const { authFlow, providerId } = resolveAuthorizationFlow(
       request,
       getPrimaryProviderId
