@@ -104,13 +104,7 @@ test('builds a hub login URL with a sanitized return path', () => {
 })
 
 test('recognizes only known public request paths', () => {
-  const publicPaths = [
-    '/favicon.ico',
-    '/health',
-    '/assets',
-    '/assets/app.css',
-    '/mounted/assets/app.css'
-  ]
+  const publicPaths = ['/favicon.ico', '/health', '/assets', '/assets/app.css']
 
   const results = publicPaths.map((path) =>
     isPublicRequest({ path }, '/assets')
@@ -121,6 +115,23 @@ test('recognizes only known public request paths', () => {
     expect(result).toBe(true)
   }
   expect(privateResult).toBe(false)
+})
+
+test('does not treat a route containing the asset path segment as public', () => {
+  const privatePaths = [
+    '/holdings/assets/x/y',
+    '/holdings/12/assets/3',
+    '/other/assets/app.css',
+    '/mounted/assets/app.css'
+  ]
+
+  const results = privatePaths.map((path) =>
+    isPublicRequest({ path }, '/assets')
+  )
+
+  for (const result of results) {
+    expect(result).toBe(false)
+  }
 })
 
 test('resolves hub origins from host, referer and configured fallback', () => {
