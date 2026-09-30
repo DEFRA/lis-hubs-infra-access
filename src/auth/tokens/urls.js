@@ -108,6 +108,8 @@ export function buildHubLoginUrl({ hubOrigin, returnUrl }) {
 }
 
 /**
+ * Assets count as public only at the start of the path - never anywhere
+ * in it, or a route such as /holdings/public/x/y would skip authentication.
  * @param {Request} request
  * @param {string} assetPath
  * @returns {boolean}
@@ -117,8 +119,7 @@ export function isPublicRequest(request, assetPath) {
     request.path === '/favicon.ico' ||
     request.path === '/health' ||
     request.path === assetPath ||
-    request.path.startsWith(`${assetPath}/`) ||
-    request.path.includes(`${assetPath}/`)
+    request.path.startsWith(`${assetPath}/`)
   )
 }
 
