@@ -62,17 +62,3 @@ export function getSpokeAccessMode(spoke) {
     spokeAccessMode: spoke?.accessMode
   })
 }
-
-/**
- * @param {string} spokeId
- * @returns {string}
- */
-export function getCurrentSpokeAccessMode(spokeId) {
-  const spoke = getSpokeById(spokeId)
-
-  if (!spoke) {
-    return defaultAccessMode
-  }
-
-  return getSpokeAccessMode(spoke)
-}

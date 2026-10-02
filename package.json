@@ -2,13 +2,11 @@
   "name": "@defra/lis-hubs-infra-access",
   "version": "0.1.0",
   "description": "Shared hub access and capability resolution for the livestock platform.",
-  "main": "src/index.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/DEFRA/lis-hubs-infra-access.git"
   },
   "exports": {
-    ".": "./src/module-access/index.js",
     "./auth": "./src/auth.js"
   },
   "files": [

@@ -3,7 +3,7 @@ import { expect, test } from 'vitest'
 import { MODULES } from '@defra/lis-hubs-infra-registry'
 
 import { getHubJwtCookieOptions } from '../../../src/authentication/tokens/jwt.js'
-import { getCurrentSpokeAccessMode } from '../../../src/authentication/tokens/access-mode.js'
+import { getSpokeAccessMode } from '../../../src/authentication/tokens/access-mode.js'
 import { createSpokeGuard } from '../../../src/authentication/tokens/guards.js'
 
 const SPOKES = MODULES.map((module) => ({
@@ -51,8 +51,8 @@ test('all current spokes default to user-session authentication', () => {
   const rows = SPOKES.map((spoke) => ({
     spokeId: spoke.id,
     taxonomyId: spoke.taxonomy.id,
-    accessMode: getCurrentSpokeAccessMode(spoke.id),
-    guard: guardByAccessMode[getCurrentSpokeAccessMode(spoke.id)]
+    accessMode: getSpokeAccessMode(spoke),
+    guard: guardByAccessMode[getSpokeAccessMode(spoke)]
   }))
 
   console.table(rows)

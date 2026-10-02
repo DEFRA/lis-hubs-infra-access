@@ -18,8 +18,7 @@ export {
 export {
   resolveAccessMode,
   getSpokeById,
-  getSpokeAccessMode,
-  getCurrentSpokeAccessMode
+  getSpokeAccessMode
 } from './access-mode.js'
 
 export { createAuthGuard, createSpokeGuard } from './guards.js'

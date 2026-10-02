@@ -1,7 +1,6 @@
 import { expect, test } from 'vitest'
 
 import {
-  getCurrentSpokeAccessMode,
   getSpokeAccessMode,
   getSpokeById,
   resolveAccessMode
@@ -35,17 +34,11 @@ test('resolveAccessMode rejects hub-service as an unknown access mode', () => {
   expect(error?.message).toMatch(/Unknown access mode: hub-service/)
 })
 
-test('getCurrentSpokeAccessMode defaults current spokes to user-session', () => {
-  expect(getCurrentSpokeAccessMode('cattle-home')).toBe('user-session')
-  expect(getCurrentSpokeAccessMode('cattle-move')).toBe('user-session')
-})
-
 test('rejects unknown access modes and defaults unknown spokes', () => {
   expect(() => resolveAccessMode({ spokeAccessMode: 'unknown' })).toThrow(
     /Unknown access mode: unknown/
   )
   expect(getSpokeById('unknown')).toBeNull()
-  expect(getCurrentSpokeAccessMode('unknown')).toBe('user-session')
   expect(getSpokeAccessMode({ taxonomy: { id: 'unknown' } })).toBe(
     'user-session'
   )
