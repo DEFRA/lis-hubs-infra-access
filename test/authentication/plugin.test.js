@@ -10,7 +10,7 @@ vi.mock('@defra/lis-hubs-infra-core', () => ({ logger }))
 import {
   createHubAuthPlugin,
   createHubCookieOptions
-} from '../../src/auth/plugin.js'
+} from '../../src/authentication/plugin.js'
 
 afterEach(() => {
   vi.clearAllMocks()

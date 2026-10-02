@@ -13,7 +13,7 @@ const { logger } = vi.hoisted(() => ({
 vi.mock('jose', () => jose)
 vi.mock('@defra/lis-hubs-infra-core', () => ({ logger }))
 
-import { createOidcClient } from '../../src/auth/oidc.js'
+import { createOidcClient } from '../../src/authentication/oidc.js'
 
 const providerConfig = {
   discoveryUrl: 'https://identity.example/.well-known/openid-configuration',

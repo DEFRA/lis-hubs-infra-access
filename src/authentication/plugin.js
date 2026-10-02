@@ -10,7 +10,7 @@ import {
   getReturnUrlFromRequest,
   issueHubJwt
 } from './tokens/index.js'
-import { getAuthorizedSpecies } from '../module-access/index.js'
+import { getAuthorizedSpecies } from '../module-access/species.js'
 import { hydrateAuthorization } from '../authorization/index.js'
 
 const ServiceUnavailable = 503

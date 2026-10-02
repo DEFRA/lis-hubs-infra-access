@@ -8,7 +8,7 @@ import {
   isPublicRequest,
   resolveHubOrigin,
   sanitizeReturnUrl
-} from '../../../src/auth/tokens/urls.js'
+} from '../../../src/authentication/tokens/urls.js'
 
 test('buildCurrentRequestUrl reapplies the forwarded prefix for mounted spokes', () => {
   const request = {
