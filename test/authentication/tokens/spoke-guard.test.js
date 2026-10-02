@@ -2,9 +2,9 @@ import { expect, test } from 'vitest'
 
 import { MODULES } from '@defra/lis-hubs-infra-registry'
 
-import { getHubJwtCookieOptions } from '../../../src/auth/tokens/jwt.js'
-import { getCurrentSpokeAccessMode } from '../../../src/auth/tokens/access-mode.js'
-import { createSpokeGuard } from '../../../src/auth/tokens/guards.js'
+import { getHubJwtCookieOptions } from '../../../src/authentication/tokens/jwt.js'
+import { getCurrentSpokeAccessMode } from '../../../src/authentication/tokens/access-mode.js'
+import { createSpokeGuard } from '../../../src/authentication/tokens/guards.js'
 
 const SPOKES = MODULES.map((module) => ({
   ...module,

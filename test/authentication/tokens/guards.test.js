@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 
-import { issueHubJwt } from '../../../src/auth/tokens/jwt.js'
-import { createAuthGuard } from '../../../src/auth/tokens/guards.js'
+import { issueHubJwt } from '../../../src/authentication/tokens/jwt.js'
+import { createAuthGuard } from '../../../src/authentication/tokens/guards.js'
 
 const jwtConfig = {
   secret: 'test-hub-secret-please-change-1234567890',

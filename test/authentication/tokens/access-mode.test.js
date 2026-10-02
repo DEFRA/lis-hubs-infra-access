@@ -5,7 +5,7 @@ import {
   getSpokeAccessMode,
   getSpokeById,
   resolveAccessMode
-} from '../../../src/auth/tokens/access-mode.js'
+} from '../../../src/authentication/tokens/access-mode.js'
 
 test('resolveAccessMode returns the most restrictive mode', () => {
   const publicVsUserSession = resolveAccessMode({

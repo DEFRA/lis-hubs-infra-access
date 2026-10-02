@@ -9,7 +9,7 @@ import {
   getHubAuthSession,
   setHubAuthFlow,
   setHubAuthSession
-} from '../../src/auth/session.js'
+} from '../../src/authentication/session.js'
 
 function createRequest() {
   const values = new Map()

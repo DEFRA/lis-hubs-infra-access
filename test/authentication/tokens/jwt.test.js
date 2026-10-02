@@ -4,7 +4,7 @@ import {
   getHubJwtPayloadFromRequest,
   issueHubJwt,
   verifyHubJwt
-} from '../../../src/auth/tokens/jwt.js'
+} from '../../../src/authentication/tokens/jwt.js'
 
 const jwtConfig = {
   secret: 'test-hub-secret-please-change-1234567890',

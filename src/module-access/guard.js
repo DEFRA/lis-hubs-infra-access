@@ -1,6 +1,6 @@
 /** @import { Module, ModuleAccess } from './module-access-resolution.js' */
 import Boom from '@hapi/boom'
-import { isPublicRequest } from '../auth/tokens/index.js'
+import { isPublicRequest } from '../authentication/tokens/index.js'
 import { hasModuleAccess } from './access.js'
 import { normalizeModuleAccess } from './module-access-resolution.js'
 

@@ -1,6 +1,9 @@
-export { createOidcClient } from './auth/oidc.js'
+export { createOidcClient } from './authentication/oidc.js'
 
-export { createHubAuthPlugin, createHubCookieOptions } from './auth/plugin.js'
+export {
+  createHubAuthPlugin,
+  createHubCookieOptions
+} from './authentication/plugin.js'
 
 export {
   clearHubAuthFlow,
@@ -10,7 +13,7 @@ export {
   getHubAuthSession,
   setHubAuthFlow,
   setHubAuthSession
-} from './auth/session.js'
+} from './authentication/session.js'
 
 export {
   buildCurrentRequestUrl,
@@ -30,7 +33,7 @@ export {
   resolveHubOrigin,
   sanitizeReturnUrl,
   verifyHubJwt
-} from './auth/tokens/index.js'
+} from './authentication/tokens/index.js'
 
 export {
   AUTHORIZATION_VERSION,
