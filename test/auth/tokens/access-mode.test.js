@@ -12,18 +12,27 @@ test('resolveAccessMode returns the most restrictive mode', () => {
     taxonomyAccessMode: 'public',
     spokeAccessMode: 'user-session'
   })
-  const userSessionVsHubService = resolveAccessMode({
-    taxonomyAccessMode: 'user-session',
-    spokeAccessMode: 'hub-service'
-  })
-  const hubServiceVsPublic = resolveAccessMode({
-    taxonomyAccessMode: 'hub-service',
-    spokeAccessMode: 'public'
-  })
 
   expect(publicVsUserSession).toBe('user-session')
-  expect(userSessionVsHubService).toBe('hub-service')
-  expect(hubServiceVsPublic).toBe('hub-service')
+})
+
+test('resolveAccessMode rejects hub-service as an unknown access mode', () => {
+  // Arrange
+  let error
+
+  // Act
+  try {
+    resolveAccessMode({
+      taxonomyAccessMode: 'user-session',
+      spokeAccessMode: 'hub-service'
+    })
+  } catch (e) {
+    error = e
+  }
+
+  // Assert
+  expect(error).toBeInstanceOf(Error)
+  expect(error?.message).toMatch(/Unknown access mode: hub-service/)
 })
 
 test('getCurrentSpokeAccessMode defaults current spokes to user-session', () => {

@@ -1,5 +1,4 @@
 import { MODULES, TAXONOMIES } from '@defra/lis-hubs-infra-registry'
-import { HUB_SERVICE_SUBJECT } from './constants.js'
 
 const SUPPORTED_TAXONOMIES = TAXONOMIES
 const SPOKES = MODULES.map((module) => ({
@@ -11,8 +10,7 @@ const SPOKES = MODULES.map((module) => ({
 
 const accessModeRanks = {
   public: 0,
-  'user-session': 1,
-  [HUB_SERVICE_SUBJECT]: 2
+  'user-session': 1
 }
 const defaultAccessMode = 'user-session'
 

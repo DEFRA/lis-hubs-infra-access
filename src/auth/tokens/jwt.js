@@ -4,8 +4,6 @@ import { TextEncoder } from 'node:util'
 import { SignJWT, jwtVerify } from 'jose'
 
 import { AUTHORIZATION_VERSION } from '../../authorization/index.js'
-import { logInvalidHubServiceJwt, logMissingHubServiceJwt } from '../logging.js'
-import { HUB_SERVICE_SUBJECT } from './constants.js'
 
 const encoder = new TextEncoder()
 const MILLISECONDS_PER_SECOND = 1000
@@ -60,36 +58,6 @@ export async function issueHubJwt(
 }
 
 /**
- * @param {{ taxonomyId: string, spokeId: string, user: object }} subject
- * @param {{ secret: string, issuer: string, audience: string, ttlSeconds: number }} options
- * @returns {Promise<string>}
- */
-export async function createSpokeAuthToken(
-  { taxonomyId, spokeId, user },
-  { secret, issuer, audience, ttlSeconds }
-) {
-  const token = await new SignJWT({
-    taxonomy: taxonomyId,
-    spokeId,
-    actorSub: user?.sub ?? '',
-    actorEmail: user?.email ?? '',
-    actorFirstName: user?.firstName ?? '',
-    actorLastName: user?.lastName ?? '',
-    actorStatements: Array.isArray(user?.statements) ? user.statements : [],
-    authzVersion: AUTHORIZATION_VERSION
-  })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setSubject(HUB_SERVICE_SUBJECT)
-    .setIssuer(issuer)
-    .setAudience(audience)
-    .setIssuedAt()
-    .setExpirationTime(`${ttlSeconds}s`)
-    .sign(getHubJwtSecret(secret))
-
-  return `Bearer ${token}`
-}
-
-/**
  * @param {string} token
  * @param {{ secret: string, issuer: string, audience: string }} options
  * @returns {Promise<object>}
@@ -105,48 +73,6 @@ export async function verifyHubJwt(token, { secret, issuer, audience }) {
   }
 
   return payload
-}
-
-/**
- * @param {string} token
- * @param {{ secret: string, issuer: string, audience: string, taxonomyId: string, spokeId: string }} options
- * @returns {Promise<object>}
- */
-export async function verifyHubServiceJwt(
-  token,
-  { secret, issuer, audience, taxonomyId, spokeId }
-) {
-  const payload = await verifyHubJwt(token, { secret, issuer, audience })
-
-  if (payload.sub !== HUB_SERVICE_SUBJECT) {
-    throw new Error('Unexpected service token subject')
-  }
-
-  if (payload.taxonomy !== taxonomyId) {
-    throw new Error('Unexpected service token taxonomy')
-  }
-
-  if (payload.spokeId !== spokeId) {
-    throw new Error('Unexpected service token spoke')
-  }
-
-  return payload
-}
-
-/**
- * @param {Request} request
- * @returns {string | null}
- */
-function getAuthorizationBearerToken(request) {
-  const authorizationHeader = request.headers?.authorization
-
-  if (typeof authorizationHeader !== 'string') {
-    return null
-  }
-
-  const [scheme, token] = authorizationHeader.split(/\s+/)
-
-  return scheme?.toLowerCase() === 'bearer' && token ? token : null
 }
 
 /**
@@ -167,36 +93,6 @@ export async function getHubJwtPayloadFromRequest(
   try {
     return await verifyHubJwt(token, { secret, issuer, audience })
   } catch {
-    return null
-  }
-}
-
-/**
- * @param {Request} request
- * @param {{ secret: string, issuer: string, audience: string, taxonomyId: string, spokeId: string }} options
- * @returns {Promise<object | null>}
- */
-export async function getHubServiceJwtPayloadFromRequest(
-  request,
-  { secret, issuer, audience, taxonomyId, spokeId }
-) {
-  const token = getAuthorizationBearerToken(request)
-
-  if (!token) {
-    logMissingHubServiceJwt(request)
-    return null
-  }
-
-  try {
-    return await verifyHubServiceJwt(token, {
-      secret,
-      issuer,
-      audience,
-      taxonomyId,
-      spokeId
-    })
-  } catch (error) {
-    logInvalidHubServiceJwt(error)
     return null
   }
 }

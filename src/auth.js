@@ -17,13 +17,10 @@ export {
   buildMicrositeReturnUrl,
   buildHubLoginUrl,
   createAuthGuard,
-  createHubServiceGuard,
-  createSpokeAuthToken,
   createSpokeGuard,
   getCurrentSpokeAccessMode,
   getHubJwtCookieOptions,
   getHubJwtPayloadFromRequest,
-  getHubServiceJwtPayloadFromRequest,
   getSpokeAccessMode,
   getSpokeById,
   getReturnUrlFromRequest,
@@ -32,8 +29,7 @@ export {
   resolveAccessMode,
   resolveHubOrigin,
   sanitizeReturnUrl,
-  verifyHubJwt,
-  verifyHubServiceJwt
+  verifyHubJwt
 } from './auth/tokens/index.js'
 
 export {

@@ -1,12 +1,7 @@
 /** @import { Request } from '@hapi/hapi' */
 import { hydrateAuthorization } from '../../authorization/index.js'
-import { statusCodes } from '../../constants/status-codes.js'
 import { getSpokeAccessMode, getSpokeById } from './access-mode.js'
-import { HUB_SERVICE_SUBJECT } from './constants.js'
-import {
-  getHubJwtPayloadFromRequest,
-  getHubServiceJwtPayloadFromRequest
-} from './jwt.js'
+import { getHubJwtPayloadFromRequest } from './jwt.js'
 import {
   buildHubLoginUrl,
   buildMicrositeReturnUrl,
@@ -82,120 +77,7 @@ export function createAuthGuard({
 }
 
 /**
- * @param {{ assetPath: string, secret: string, hubOrigins: string[], audience: string, taxonomyId: string, spokeId: string }} options
- * @returns {object}
- */
-export function createHubServiceGuard({
-  assetPath,
-  secret,
-  hubOrigins,
-  audience,
-  taxonomyId,
-  spokeId
-}) {
-  return createRequestGuard({
-    name: 'hubServiceGuard',
-    assetPath,
-    async authenticate(request, h) {
-      const hubServiceJwtPayload = await getHubServiceJwtPayloadFromRequest(
-        request,
-        {
-          secret,
-          issuer: hubOrigins,
-          audience,
-          taxonomyId,
-          spokeId
-        }
-      )
-
-      if (!hubServiceJwtPayload) {
-        return h
-          .response({ message: 'Hub service authentication required' })
-          .code(statusCodes.unauthorized)
-          .takeover()
-      }
-
-      hydrateHubServiceActor(request, hubServiceJwtPayload)
-
-      return h.continue
-    }
-  })
-}
-
-function hydrateHubServiceActor(request, hubServiceJwtPayload) {
-  request.app.hubServiceAuth = hubServiceJwtPayload
-  request.app.hubAuth = hydrateAuthorization({
-    sub: hubServiceJwtPayload.actorSub,
-    email: hubServiceJwtPayload.actorEmail,
-    firstName: hubServiceJwtPayload.actorFirstName,
-    lastName: hubServiceJwtPayload.actorLastName,
-    statements: Array.isArray(hubServiceJwtPayload.actorStatements)
-      ? hubServiceJwtPayload.actorStatements
-      : []
-  })
-}
-
-function createRouteAwareAuthGuard({
-  hubOrigins,
-  cookieName,
-  cookieOptions,
-  assetPath,
-  port,
-  basePath,
-  secret,
-  audience,
-  taxonomyId,
-  spokeId
-}) {
-  return createRequestGuard({
-    name: 'routeAwareAuthGuard',
-    assetPath,
-    registerState(server) {
-      server.state(cookieName, cookieOptions)
-    },
-    async authenticate(request, h) {
-      if (request.route?.settings?.app?.authMode === HUB_SERVICE_SUBJECT) {
-        const hubServiceJwtPayload = await getHubServiceJwtPayloadFromRequest(
-          request,
-          { secret, issuer: hubOrigins, audience, taxonomyId, spokeId }
-        )
-
-        if (!hubServiceJwtPayload) {
-          return h
-            .response({ message: 'Hub service authentication required' })
-            .code(statusCodes.unauthorized)
-            .takeover()
-        }
-
-        hydrateHubServiceActor(request, hubServiceJwtPayload)
-        return h.continue
-      }
-
-      const hubJwtPayload = await getHubJwtPayloadFromRequest(request, {
-        cookieName,
-        secret,
-        issuer: hubOrigins,
-        audience
-      })
-
-      if (!hubJwtPayload) {
-        const loginUrl = buildHubLoginUrl({
-          hubOrigin: resolveHubOrigin(request, hubOrigins),
-          returnUrl: buildMicrositeReturnUrl(request, { port, basePath })
-        })
-
-        return h.redirect(loginUrl).takeover()
-      }
-
-      request.app.hubAuth = hydrateAuthorization(hubJwtPayload)
-      request.app.hubOrigin = resolveHubOrigin(request, hubOrigins)
-      return h.continue
-    }
-  })
-}
-
-/**
- * @param {{ spokeId: string, hubOrigins: string[], cookieName: string, cookieOptions: object, assetPath: string, port: number, secret: string, audience: string, allowHubServiceRoutes?: boolean }} options
+ * @param {{ spokeId: string, hubOrigins: string[], cookieName: string, cookieOptions: object, assetPath: string, port: number, secret: string, audience: string }} options
  * @returns {object | null}
  */
 export function createSpokeGuard({
@@ -207,8 +89,7 @@ export function createSpokeGuard({
   port,
   basePath,
   secret,
-  audience,
-  allowHubServiceRoutes = false
+  audience
 }) {
   const spoke = getSpokeById(spokeId)
 
@@ -220,32 +101,6 @@ export function createSpokeGuard({
 
   if (accessMode === 'public') {
     return null
-  }
-
-  if (accessMode === HUB_SERVICE_SUBJECT) {
-    return createHubServiceGuard({
-      assetPath,
-      secret,
-      hubOrigins,
-      audience,
-      taxonomyId: spoke.taxonomy.id,
-      spokeId: spoke.id
-    })
-  }
-
-  if (allowHubServiceRoutes) {
-    return createRouteAwareAuthGuard({
-      hubOrigins,
-      cookieName,
-      cookieOptions,
-      assetPath,
-      port,
-      basePath,
-      secret,
-      audience,
-      taxonomyId: spoke.taxonomy.id,
-      spokeId: spoke.id
-    })
   }
 
   return createAuthGuard({

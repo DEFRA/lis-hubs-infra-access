@@ -1,11 +1,7 @@
 import { expect, test } from 'vitest'
 
 import { issueHubJwt } from '../../../src/auth/tokens/jwt.js'
-import {
-  createAuthGuard,
-  createHubServiceGuard,
-  createSpokeGuard
-} from '../../../src/auth/tokens/guards.js'
+import { createAuthGuard } from '../../../src/auth/tokens/guards.js'
 
 const jwtConfig = {
   secret: 'test-hub-secret-please-change-1234567890',
@@ -120,80 +116,4 @@ test('auth guard hydrates authenticated requests', async () => {
   expect(await handler(request, h)).toBe(h.continue)
   expect(request.app.hubAuth.sub).toBe('user-1')
   expect(request.app.hubOrigin).toBe(jwtConfig.issuer)
-})
-
-test('hub-service guard denies missing credentials and bypasses public routes', async () => {
-  const guard = createHubServiceGuard({
-    assetPath: '/assets',
-    taxonomyId: 'status',
-    spokeId: 'cattle-status',
-    ...jwtConfig
-  })
-  const handler = registerRequestGuard(guard)
-  const h = createGuardToolkit()
-
-  const healthResult = await handler(
-    { path: '/health', headers: {}, app: {} },
-    h
-  )
-  const privateResult = await handler(
-    { path: '/private', headers: {}, app: {} },
-    h
-  )
-
-  expect(healthResult).toBe(h.continue)
-  expect(privateResult).toBe(h.result)
-  expect(h.result.payload).toEqual({
-    message: 'Hub service authentication required'
-  })
-  expect(h.result.statusCode).toBe(401)
-})
-
-function createRouteAwareGuard() {
-  return createSpokeGuard({
-    spokeId: 'cattle-home',
-    hubOrigins: [jwtConfig.issuer],
-    cookieName: 'hub-jwt',
-    cookieOptions: { isSecure: false },
-    assetPath: '/assets',
-    port: 3221,
-    basePath: '/cattle/home',
-    secret: jwtConfig.secret,
-    audience: jwtConfig.audience,
-    allowHubServiceRoutes: true
-  })
-}
-
-test('route-aware guard applies user-session behavior to unmarked routes', async () => {
-  const handler = registerRequestGuard(createRouteAwareGuard())
-  const h = createGuardToolkit()
-  const request = {
-    path: '/summary',
-    route: { settings: { app: {} } },
-    headers: { host: 'localhost:3000' },
-    raw: { req: { url: '/summary' } },
-    state: {},
-    app: {}
-  }
-
-  expect(await handler(request, h)).toBe(h.result)
-  expect(h.result.location).toMatch(/\/auth\/login\?returnUrl=/)
-  expect(h.result.takenOver).toBe(true)
-})
-
-test('route-aware guard rejects missing credentials on hub-service routes', async () => {
-  const handler = registerRequestGuard(createRouteAwareGuard())
-  const h = createGuardToolkit()
-  const request = {
-    path: '/summary',
-    route: { settings: { app: { authMode: 'hub-service' } } },
-    headers: {},
-    app: {}
-  }
-
-  expect(await handler(request, h)).toBe(h.result)
-  expect(h.result.payload).toEqual({
-    message: 'Hub service authentication required'
-  })
-  expect(h.result.statusCode).toBe(401)
 })

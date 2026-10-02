@@ -1,11 +1,8 @@
 export {
   getHubJwtCookieOptions,
   issueHubJwt,
-  createSpokeAuthToken,
   verifyHubJwt,
-  verifyHubServiceJwt,
-  getHubJwtPayloadFromRequest,
-  getHubServiceJwtPayloadFromRequest
+  getHubJwtPayloadFromRequest
 } from './jwt.js'
 
 export {
@@ -25,8 +22,4 @@ export {
   getCurrentSpokeAccessMode
 } from './access-mode.js'
 
-export {
-  createAuthGuard,
-  createHubServiceGuard,
-  createSpokeGuard
-} from './guards.js'
+export { createAuthGuard, createSpokeGuard } from './guards.js'
