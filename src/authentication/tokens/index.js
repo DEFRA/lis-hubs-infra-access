@@ -11,7 +11,6 @@ export {
   buildCurrentRequestUrl,
   buildMicrositeReturnUrl,
   buildHubLoginUrl,
-  isPublicRequest,
   resolveHubOrigin
 } from './urls.js'
 
@@ -20,5 +19,3 @@ export {
   getSpokeById,
   getSpokeAccessMode
 } from './access-mode.js'
-
-export { createAuthGuard, createSpokeGuard } from './guards.js'

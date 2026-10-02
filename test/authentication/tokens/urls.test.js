@@ -5,7 +5,6 @@ import {
   buildHubLoginUrl,
   buildMicrositeReturnUrl,
   getReturnUrlFromRequest,
-  isPublicRequest,
   resolveHubOrigin,
   sanitizeReturnUrl
 } from '../../../src/authentication/tokens/urls.js'
@@ -101,37 +100,6 @@ test('builds a hub login URL with a sanitized return path', () => {
   expect(url).toBe(
     'https://hub.example/auth/login?returnUrl=%2Fcattle%2Fmove%3Fstep%3D1'
   )
-})
-
-test('recognizes only known public request paths', () => {
-  const publicPaths = ['/favicon.ico', '/health', '/assets', '/assets/app.css']
-
-  const results = publicPaths.map((path) =>
-    isPublicRequest({ path }, '/assets')
-  )
-  const privateResult = isPublicRequest({ path: '/private' }, '/assets')
-
-  for (const result of results) {
-    expect(result).toBe(true)
-  }
-  expect(privateResult).toBe(false)
-})
-
-test('does not treat a route containing the asset path segment as public', () => {
-  const privatePaths = [
-    '/holdings/assets/x/y',
-    '/holdings/12/assets/3',
-    '/other/assets/app.css',
-    '/mounted/assets/app.css'
-  ]
-
-  const results = privatePaths.map((path) =>
-    isPublicRequest({ path }, '/assets')
-  )
-
-  for (const result of results) {
-    expect(result).toBe(false)
-  }
 })
 
 test('resolves hub origins from host, referer and configured fallback', () => {
