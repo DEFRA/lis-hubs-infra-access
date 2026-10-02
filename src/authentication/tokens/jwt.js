@@ -3,7 +3,7 @@ import { TextEncoder } from 'node:util'
 
 import { SignJWT, jwtVerify } from 'jose'
 
-import { AUTHORIZATION_VERSION } from '../../authorization/index.js'
+import { AUTHORIZATION_VERSION } from '../../authorization/constants.js'
 
 const encoder = new TextEncoder()
 const MILLISECONDS_PER_SECOND = 1000
@@ -65,7 +65,8 @@ export async function issueHubJwt(
 export async function verifyHubJwt(token, { secret, issuer, audience }) {
   const { payload } = await jwtVerify(token, getHubJwtSecret(secret), {
     issuer,
-    audience
+    audience,
+    algorithms: ['HS256']
   })
 
   if (payload.authzVersion !== AUTHORIZATION_VERSION) {
@@ -73,6 +74,22 @@ export async function verifyHubJwt(token, { secret, issuer, audience }) {
   }
 
   return payload
+}
+
+/**
+ * @param {Request} request
+ * @returns {string | null}
+ */
+export function getAuthorizationBearerToken(request) {
+  const authorizationHeader = request.headers?.authorization
+
+  if (typeof authorizationHeader !== 'string') {
+    return null
+  }
+
+  const [scheme, token] = authorizationHeader.split(/\s+/)
+
+  return scheme?.toLowerCase() === 'bearer' && token ? token : null
 }
 
 /**

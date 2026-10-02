@@ -1,6 +1,8 @@
+import { SignJWT } from 'jose'
 import { expect, test } from 'vitest'
 
 import {
+  getAuthorizationBearerToken,
   getHubJwtPayloadFromRequest,
   issueHubJwt,
   verifyHubJwt
@@ -93,4 +95,42 @@ test('returns null for missing and invalid hub session cookies', async () => {
       options
     )
   ).toBeNull()
+})
+
+test('getAuthorizationBearerToken returns the token from a bearer header', () => {
+  expect(
+    getAuthorizationBearerToken({
+      headers: { authorization: 'bearer abc.def' }
+    })
+  ).toBe('abc.def')
+})
+
+test('getAuthorizationBearerToken returns null for missing or malformed headers', () => {
+  const tokens = [undefined, 'Basic token', 'Bearer', ''].map((authorization) =>
+    getAuthorizationBearerToken({ headers: { authorization } })
+  )
+
+  expect(tokens).toEqual([null, null, null, null])
+})
+
+test('verifyHubJwt rejects a token signed with a different HMAC algorithm', async () => {
+  // Arrange
+  const token = await new SignJWT({ authzVersion: 1 })
+    .setProtectedHeader({ alg: 'HS512' })
+    .setIssuer(jwtConfig.issuer)
+    .setAudience(jwtConfig.audience)
+    .setExpirationTime('1h')
+    .sign(new TextEncoder().encode(jwtConfig.secret))
+
+  // Act
+  let result, error
+  try {
+    result = await verifyHubJwt(token, jwtConfig)
+  } catch (e) {
+    error = e
+  }
+
+  // Assert
+  expect(result).toBeUndefined()
+  expect(error.code).toBe('ERR_JOSE_ALG_NOT_ALLOWED')
 })

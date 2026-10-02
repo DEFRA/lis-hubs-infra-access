@@ -1,0 +1,134 @@
+import { afterEach, expect, test, vi } from 'vitest'
+
+const { logger } = vi.hoisted(() => ({
+  logger: { context: { set: vi.fn() } }
+}))
+
+vi.mock('@defra/lis-hubs-infra-core', () => ({ logger }))
+
+import { hydrateAuthorization } from '../../../src/authorization/permissions/hydrate.js'
+import { hasPermission } from '../../../src/authorization/permissions/checks.js'
+
+afterEach(() => {
+  vi.clearAllMocks()
+})
+
+test('hashes and stores the email in logger context when present', () => {
+  // Act
+  hydrateAuthorization({ email: 'user@example.com', statements: [] })
+
+  // Assert
+  expect(logger.context.set).toHaveBeenCalledWith(
+    'user_email_hash',
+    'user@example.com',
+    true
+  )
+})
+
+test('does not touch logger context when no email is present', () => {
+  // Act
+  hydrateAuthorization({ statements: [] })
+
+  // Assert
+  expect(logger.context.set).not.toHaveBeenCalled()
+})
+
+test('permissions are rehydrated locally from LIS roles', () => {
+  // Arrange
+  const authorization = hydrateAuthorization({
+    statements: [{ role: 'lis-role-caseworker', cphs: '*' }]
+  })
+
+  // Act
+  const hasReadPermission = hasPermission(authorization, {
+    permission: 'lis-perm-cattle-read'
+  })
+
+  // Assert
+  expect(hasReadPermission).toBe(true)
+})
+
+test('attaches a permissions array to each statement', () => {
+  // Arrange
+  const options = {
+    statements: [{ role: 'lis-role-cattle-write', cphs: ['10/081/1234'] }]
+  }
+
+  // Act
+  const authorization = hydrateAuthorization(options)
+
+  // Assert
+  expect(authorization.statements).toEqual([
+    {
+      role: 'lis-role-cattle-write',
+      cphs: ['10/081/1234'],
+      permissions: ['lis-perm-cattle-read', 'lis-perm-cattle-write']
+    }
+  ])
+})
+
+test('rejects unknown roles and malformed statements', () => {
+  // Arrange
+  const options = {
+    statements: [
+      { role: 'lis-role-caseworker', cphs: '*' },
+      { role: 'unknown-role', cphs: '*' },
+      { role: 'lis-role-cattle-read', cphs: ['10/081/1234'] },
+      { role: 'unknown-role', cphs: ['10/081/1234'] },
+      { role: 'lis-role-cattle-read', cphs: [] },
+      { role: 'lis-role-cattle-read' },
+      null
+    ]
+  }
+
+  // Act
+  const authorization = hydrateAuthorization(options)
+
+  // Assert
+  expect(authorization.statements).toEqual([
+    {
+      role: 'lis-role-caseworker',
+      cphs: '*',
+      permissions: [
+        'lis-perm-cattle-read',
+        'lis-perm-cattle-register-write',
+        'lis-perm-sheep-read'
+      ]
+    },
+    {
+      role: 'lis-role-cattle-read',
+      cphs: ['10/081/1234'],
+      permissions: ['lis-perm-cattle-read']
+    }
+  ])
+})
+
+test('uses safe defaults for a non-array statements value', () => {
+  // Arrange
+  const authorization = hydrateAuthorization({ statements: 'not-an-array' })
+
+  // Assert
+  expect(authorization.statements).toEqual([])
+})
+
+test('does not trust an injected permissions array without a valid role', () => {
+  // Arrange
+  const authorization = hydrateAuthorization({
+    statements: [
+      {
+        role: 'unknown-role',
+        cphs: '*',
+        permissions: ['lis-perm-back-office']
+      }
+    ]
+  })
+
+  // Act
+  const hasBackOfficePermission = hasPermission(authorization, {
+    permission: 'lis-perm-back-office'
+  })
+
+  // Assert
+  expect(authorization.statements).toEqual([])
+  expect(hasBackOfficePermission).toBe(false)
+})

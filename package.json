@@ -6,8 +6,11 @@
     "type": "git",
     "url": "https://github.com/DEFRA/lis-hubs-infra-access.git"
   },
+  "main": "./src/index.js",
   "exports": {
-    "./auth": "./src/auth.js"
+    ".": "./src/index.js",
+    "./authentication": "./src/authentication/index.js",
+    "./authorization": "./src/authorization/index.js"
   },
   "files": [
     "src"
@@ -48,6 +51,7 @@
     "@defra/lis-hubs-infra-registry": "^0.5.0",
     "@defra/lis-infra-eslint-config": "^0.6.0",
     "@hapi/boom": "10.0.1",
+    "@hapi/hapi": "21.4.10",
     "@vitest/coverage-istanbul": "^4.1.10",
     "audit-ci": "^7.1.0",
     "eslint": "^9.0.0",

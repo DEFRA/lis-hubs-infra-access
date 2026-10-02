@@ -54,8 +54,10 @@ export function getReturnUrlFromRequest(request) {
  * @returns {URL}
  */
 export function buildCurrentRequestUrl(request, port) {
-  const protocol = request.headers['x-forwarded-proto'] ?? 'http'
-  const host = request.headers.host ?? `localhost:${port}`
+  const forwardedProto = request.headers['x-forwarded-proto']
+  const protocol = typeof forwardedProto === 'string' ? forwardedProto : 'http'
+  const hostHeader = request.headers.host
+  const host = typeof hostHeader === 'string' ? hostHeader : `localhost:${port}`
   const currentUrl = new URL(
     request.raw.req.url ?? request.path,
     `${protocol}://${host}`
@@ -105,22 +107,6 @@ export function buildHubLoginUrl({ hubOrigin, returnUrl }) {
   const loginUrl = new URL('/auth/login', hubOrigin)
   loginUrl.searchParams.set('returnUrl', sanitizeReturnUrl(returnUrl))
   return loginUrl.toString()
-}
-
-/**
- * Assets count as public only at the start of the path - never anywhere
- * in it, or a route such as /holdings/public/x/y would skip authentication.
- * @param {Request} request
- * @param {string} assetPath
- * @returns {boolean}
- */
-export function isPublicRequest(request, assetPath) {
-  return (
-    request.path === '/favicon.ico' ||
-    request.path === '/health' ||
-    request.path === assetPath ||
-    request.path.startsWith(`${assetPath}/`)
-  )
 }
 
 /**
