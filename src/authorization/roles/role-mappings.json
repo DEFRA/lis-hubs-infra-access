@@ -3,8 +3,9 @@
     "bcms_user": "lis-role-bcms-user",
     "test_nor_issuer": "lis-role-nor-issuer"
   },
-  "profile": {
-    "livestockowner": "lis-role-keeper",
-    "cphholder": "lis-role-keeper"
+  "krds": {
+    "owner": "lis-role-keeper",
+    "holder": "lis-role-keeper",
+    "keeper": "lis-role-keeper"
   }
 }

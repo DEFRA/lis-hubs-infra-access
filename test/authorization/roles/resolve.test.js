@@ -61,8 +61,8 @@ test('source roles are translated to a single bundled internal role', () => {
 test('CPH-scoped holding roles retain their CPH scope', () => {
   // Arrange
   const options = {
-    source: 'profile',
-    holdingRoles: [{ role: 'livestockowner', cph: '10/081/1234' }]
+    source: 'krds',
+    holdingRoles: [{ role: 'owner', cph: '10/081/1234' }]
   }
 
   // Act
@@ -78,10 +78,10 @@ test('CPH-scoped holding roles retain their CPH scope', () => {
 test('groups multiple CPHs for the same role into one statement', () => {
   // Arrange
   const options = {
-    source: 'profile',
+    source: 'krds',
     holdingRoles: [
-      { role: 'cphholder', cph: '10/081/1234' },
-      { role: 'cphholder', cph: '10/081/5678' }
+      { role: 'keeper', cph: '10/081/1234' },
+      { role: 'holder', cph: '10/081/5678' }
     ]
   }
 
@@ -98,10 +98,10 @@ test('groups multiple CPHs for the same role into one statement', () => {
 test('a global grant for a role subsumes CPH-specific grants for the same role', () => {
   // Arrange
   const options = {
-    source: 'profile',
+    source: 'krds',
     holdingRoles: [
-      { role: 'cphholder', cph: '*' },
-      { role: 'cphholder', cph: '10/081/1234' }
+      { role: 'owner', cph: '*' },
+      { role: 'keeper', cph: '10/081/1234' }
     ]
   }
 
@@ -119,7 +119,7 @@ test('uses safe defaults for non-array holding roles and holdings', () => {
   // Arrange
   const options = {
     source: 'unknown',
-    holdingRoles: { role: 'livestockowner', cph: '10/081/1234' },
+    holdingRoles: { role: 'owner', cph: '10/081/1234' },
     holdings: 'not-an-array'
   }
 
