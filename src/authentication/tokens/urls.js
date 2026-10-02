@@ -54,8 +54,8 @@ export function getReturnUrlFromRequest(request) {
  * @returns {URL}
  */
 export function buildCurrentRequestUrl(request, port) {
-  const protocol = request.headers['x-forwarded-proto'] ?? 'http'
-  const host = request.headers.host ?? `localhost:${port}`
+  const protocol = String(request.headers['x-forwarded-proto'] ?? 'http')
+  const host = String(request.headers.host ?? `localhost:${port}`)
   const currentUrl = new URL(
     request.raw.req.url ?? request.path,
     `${protocol}://${host}`

@@ -11,7 +11,10 @@ function assertNonEmptyString(value, name) {
 const STS_CLAIM = 'https://sts.amazonaws.com/'
 
 // Only the hubs are accepted as callers.
-const ALLOWED_CALLERS = ['lis-hubs-front-office', 'lis-hubs-back-office']
+const ALLOWED_CALLERS = new Set([
+  'lis-hubs-front-office',
+  'lis-hubs-back-office'
+])
 
 /**
  * The issuer and keys come from the platform-provided CDP_JWT_ISSUER and
@@ -41,7 +44,7 @@ export function createServiceTokenVerifier({ audience }) {
       })
 
       const serviceName = payload[STS_CLAIM]?.principal_tags?.ServiceName
-      if (!ALLOWED_CALLERS.includes(serviceName)) {
+      if (!ALLOWED_CALLERS.has(serviceName)) {
         throw new Error(`Service token caller '${serviceName}' is not allowed`)
       }
 
