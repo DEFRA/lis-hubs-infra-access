@@ -8,12 +8,9 @@ Responsibilities:
 - authentication flow and user session storage
 - hub and hub-to-module token handling
 - secure cookie and return URL handling
-- profile lookup and normalized external identity data
 - provider-role translation and LIS permission expansion
-- resolve which modules a user may access in a hub
 - resolve capabilities for an allowed module
 - map raw permissions into runtime capabilities
-- enforce least-privilege filtering for hub discovery and navigation
 
 Provider-specific configuration and claim mapping remain in each deployable
 hub. Front office uses Defra CI roles. Back office uses Microsoft Entra ID
@@ -49,7 +46,7 @@ Current implementation notes:
 - role definitions live in `src/roles.json` and source mappings live in
   `src/role-mappings.json`
 - permissions are derived from translated LIS roles, not trusted from identity
-  providers or profile responses
+  providers
 - hub and hub-to-app JWTs carry LIS roles and an authorization model version,
   but do not carry expanded permissions or holdings
 - apps rehydrate permissions locally from the versioned role definitions before
