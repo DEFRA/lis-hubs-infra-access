@@ -9,8 +9,7 @@
   },
   "exports": {
     ".": "./src/module-access/index.js",
-    "./auth": "./src/auth.js",
-    "./krds-client": "./src/krds-client.js"
+    "./auth": "./src/auth.js"
   },
   "files": [
     "src"
@@ -43,7 +42,6 @@
   "peerDependencies": {
     "@defra/lis-hubs-infra-core": ">=0.4.0 <1.0.0",
     "@hapi/boom": "10.0.1",
-    "@hapi/wreck": "18.1.2",
     "eslint": "^9.0.0"
   },
   "devDependencies": {
@@ -51,7 +49,6 @@
     "@defra/lis-hubs-infra-registry": "^0.4.0",
     "@defra/lis-infra-eslint-config": "^0.6.0",
     "@hapi/boom": "10.0.1",
-    "@hapi/wreck": "18.1.2",
     "@vitest/coverage-istanbul": "^4.1.10",
     "audit-ci": "^7.1.0",
     "eslint": "^9.0.0",
