@@ -16,9 +16,8 @@ Responsibilities:
 - enforce least-privilege filtering for hub discovery and navigation
 
 Provider-specific configuration and claim mapping remain in each deployable
-hub. Front office uses Defra CI and profile-service roles. Back office uses
-Microsoft Entra ID roles and does not call the profile service. Both role
-sources are translated into LIS roles and permissions by this package.
+hub. Front office uses Defra CI roles. Back office uses Microsoft Entra ID
+roles. Both role sources are translated into LIS roles and permissions by this package.
 
 For direct public microsite access, the guard canonicalizes both proxied and
 direct-port requests to the microsite's configured `basePath` and sends that

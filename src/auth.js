@@ -36,8 +36,6 @@ export {
   verifyHubServiceJwt
 } from './auth/tokens/index.js'
 
-export { createProfileService } from './profile-service.js'
-export { createHoldingService } from './holding-service.js'
 export {
   AUTHORIZATION_VERSION,
   demandPermission,
