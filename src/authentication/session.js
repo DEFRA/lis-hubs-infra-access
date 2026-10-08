@@ -75,6 +75,6 @@ export function setHubAuthSession(request, authSession) {
  * @param {object} request - The Hapi request object with yar session support.
  */
 export function clearHubAuthSession(request) {
-  request.yar.clear(authSessionKey)
+  request?.yar?.clear?.(authSessionKey)
   clearHubAuthFlow(request)
 }

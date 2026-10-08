@@ -447,3 +447,23 @@ test('omits the ID token hint when logging out without a session', async () => {
 
   assert.equal(logoutUrl.searchParams.has('id_token_hint'), false)
 })
+
+test('signs out a given session and returns to a hub path', async () => {
+  mockDiscovery()
+  const request = createRequest(
+    new Map([['hub-auth-session', { idToken: 'stored-id-token' }]])
+  )
+
+  const logoutUrl = new URL(
+    await createClient().buildLogoutUrl(request, {
+      authSession: { idToken: 'refused-id-token' },
+      returnPath: '/auth/access-denied'
+    })
+  )
+
+  assert.equal(
+    logoutUrl.searchParams.get('post_logout_redirect_uri'),
+    'https://hub.example/auth/access-denied'
+  )
+  assert.equal(logoutUrl.searchParams.get('id_token_hint'), 'refused-id-token')
+})
