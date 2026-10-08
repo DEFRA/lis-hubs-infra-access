@@ -209,6 +209,73 @@ describe('createHubAuth()', () => {
     expect(resolveAuthSession).not.toHaveBeenCalled()
   })
 
+  test('callback signs a denied user out of the provider without issuing a session or JWT', async () => {
+    // Arrange
+    const authSession = { sub: 'user-1', idToken: 'id-token' }
+    const buildLogoutUrl = vi.fn(
+      async () => 'https://identity.example/logout?denied'
+    )
+    const { routes } = registerPlugin({
+      completeAuthorizationCodeGrant: async () => ({
+        user: { sub: 'user-1' },
+        authSession,
+        returnUrl: '/cattle'
+      }),
+      resolveAuthSession: async () => ({ denied: true }),
+      buildLogoutUrl,
+      accessDeniedPath: '/auth/access-denied'
+    })
+    const request = createRequest(
+      new Map([
+        ['hub-auth-session', { sub: 'previous-user' }],
+        ['hub-auth-flow', { state: 'state-1' }]
+      ])
+    )
+    const h = createToolkit()
+
+    // Act
+    await routes[1].handler(request, h)
+
+    // Assert
+    expect(buildLogoutUrl.mock.calls[0]).toEqual([
+      request,
+      { authSession, returnPath: '/auth/access-denied' }
+    ])
+    expect(h.redirect.mock.calls[0][0]).toBe(
+      'https://identity.example/logout?denied'
+    )
+    expect(h.result.state).not.toHaveBeenCalled()
+    expect(h.result.unstate.mock.calls[0]).toEqual([
+      'hub-jwt',
+      { isSecure: false }
+    ])
+    expect(request.yar.get('hub-auth-session')).toBeUndefined()
+  })
+
+  test('callback signs a denied user out to the hub origin when no access denied path is set', async () => {
+    // Arrange
+    const buildLogoutUrl = vi.fn(async () => 'https://identity.example/logout')
+    const { routes } = registerPlugin({
+      completeAuthorizationCodeGrant: async () => ({
+        user: { sub: 'user-1' },
+        authSession: { sub: 'user-1' },
+        returnUrl: '/cattle'
+      }),
+      resolveAuthSession: async () => ({ denied: true }),
+      buildLogoutUrl
+    })
+    const request = createRequest()
+    const h = createToolkit()
+
+    // Act
+    await routes[1].handler(request, h)
+
+    // Assert
+    expect(buildLogoutUrl.mock.calls[0][1].returnPath).toBeUndefined()
+    expect(h.redirect.mock.calls[0][0]).toBe('https://identity.example/logout')
+    expect(request.yar.get('hub-auth-session')).toBeUndefined()
+  })
+
   test('callback surfaces errors returned by the identity provider', async () => {
     // Arrange
     const { routes } = registerPlugin()

@@ -115,6 +115,7 @@ await server.register(
     completeAuthorizationCodeGrant,
     buildLogoutUrl,
     loginRoutes,
+    accessDeniedPath: '/auth/access-denied', // optional
     authorize: async (user, request) => true // optional
   })
 )
@@ -127,6 +128,13 @@ user on a required route is redirected to the first login route with
 `?returnUrl=<path+search>`; a `try` route continues unauthenticated.
 Credentials are `{ user, authorizedSpecies }`. The optional `authorize`
 predicate runs for authenticated requests only; `false` gives a 403.
+
+`resolveAuthSession` can refuse a login (e.g. a user not on an allow-list) by
+returning `{ denied: true }`: the callback then sets no session or JWT and
+signs the user out of the identity provider, which returns them to
+`accessDeniedPath` (or the hub origin when that isn't set). The hub registers
+the `accessDeniedPath` route itself, and the provider must accept it as a
+post-logout redirect URI.
 
 ### Testing routes
 

@@ -76,7 +76,9 @@ function createCallbackController({
   getHubJwtCookieName,
   completeAuthorizationCodeGrant,
   resolveAuthSession,
-  loginPath
+  buildLogoutUrl,
+  loginPath,
+  accessDeniedPath
 }) {
   return {
     options: {
@@ -103,6 +105,23 @@ function createCallbackController({
         authSession,
         accessToken
       })
+
+      // The hub refused this identity (e.g. not on an allow-list): no session
+      // or JWT is issued, any earlier one is dropped, and the user is signed
+      // out of the identity provider so the next login asks for credentials.
+      if (authorization?.denied) {
+        clearHubAuthSession(request)
+
+        const logoutUrl = await buildLogoutUrl(request, {
+          authSession,
+          returnPath: accessDeniedPath
+        })
+
+        return h
+          .redirect(logoutUrl)
+          .unstate(getHubJwtCookieName(), getCookieOptions())
+      }
+
       const enrichedAuthSession = {
         ...authSession,
         ...authorization
@@ -170,7 +189,8 @@ function createHubAuthRegistration(options) {
     buildAuthorizationUrl,
     completeAuthorizationCodeGrant,
     buildLogoutUrl,
-    loginRoutes
+    loginRoutes,
+    accessDeniedPath
   } = options
   const callbackController = createCallbackController({
     getCookieOptions,
@@ -178,7 +198,9 @@ function createHubAuthRegistration(options) {
     getHubJwtCookieName,
     completeAuthorizationCodeGrant,
     resolveAuthSession,
-    loginPath: loginRoutes[0].path
+    buildLogoutUrl,
+    loginPath: loginRoutes[0].path,
+    accessDeniedPath
   })
   const logoutController = createLogoutController({
     getCookieOptions,
@@ -273,6 +295,7 @@ function createHubSessionScheme(loginPath) {
  * @param {Function} options.completeAuthorizationCodeGrant - Function to complete OIDC authorization code flow.
  * @param {Function} options.buildLogoutUrl - Function to build logout URL.
  * @param {Array<{path: string, providerId: string|Function}>} options.loginRoutes - Login route configurations; the first is where signed-out users are sent.
+ * @param {string} [options.accessDeniedPath] - Where the identity provider returns a user after `resolveAuthSession` refuses them with `{ denied: true }` (they are signed out of the provider first); defaults to the hub origin. The hub registers this route itself.
  * @param {(user: object, request: object) => boolean | Promise<boolean>} [options.authorize] - Optional hub-wide rule for authenticated requests; `false` gives a 403.
  * @returns {{plugin: {name: string, register: Function}}} Hapi plugin object with registration function.
  */

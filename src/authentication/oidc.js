@@ -295,13 +295,28 @@ function createLogoutUrlBuilder({
   getOidcMetadata,
   getHubOrigin
 }) {
-  return async function buildLogoutUrl(request) {
-    const authSession = getHubAuthSession(request)
+  /**
+   * @param {object} request - The Hapi request.
+   * @param {object} [options]
+   * @param {object} [options.authSession] - Session to sign out instead of the stored hub session (e.g. a refused login that was never stored).
+   * @param {string} [options.returnPath] - Hub path the provider returns to after sign-out; defaults to the hub origin.
+   * @returns {Promise<string>} The provider's end-session URL.
+   */
+  return async function buildLogoutUrl(
+    request,
+    { authSession = getHubAuthSession(request), returnPath } = {}
+  ) {
     const providerId = authSession?.authProvider ?? getPrimaryProviderId?.()
     const metadata = await getOidcMetadata(providerId)
     const logoutUrl = new URL(metadata.end_session_endpoint)
+    const postLogoutRedirectUri = returnPath
+      ? new URL(returnPath, getHubOrigin()).toString()
+      : getHubOrigin()
 
-    logoutUrl.searchParams.set('post_logout_redirect_uri', getHubOrigin())
+    logoutUrl.searchParams.set(
+      'post_logout_redirect_uri',
+      postLogoutRedirectUri
+    )
 
     if (authSession?.idToken) {
       logoutUrl.searchParams.set('id_token_hint', authSession.idToken)
