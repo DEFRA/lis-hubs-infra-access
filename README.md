@@ -29,8 +29,8 @@ the server's default strategy. Identity is on `request.auth.credentials.user`
 context and `demandPermission` read it from there. Routes opt out with
 `auth: false` (assets, `/health`) or accept signed-out users with
 `auth: { mode: 'try' }` or `auth: { mode: 'optional' }`. A signed-out
-`try`/`optional` spoke request carries no credentials, so `caller` isn't
-available on those requests.
+`try`/`optional` request, in a hub or a spoke, carries no credentials, so
+`caller` isn't available on those requests.
 
 Entry points:
 
@@ -107,6 +107,7 @@ called; the CDP platform provides them. The JWKS is fetched with the built-in
 ```js
 await server.register(
   createHubAuth({
+    hubId: 'front-office',
     getHubJwtCookieName,
     getCookieOptions,
     getHubJwtConfig,
@@ -126,7 +127,9 @@ Registers the hub JWT cookie state, the login, `/sso`, `/auth/logout` and
 scheme as the default strategy, backed by the yar hub session. A signed-out
 user on a required route is redirected to the first login route with
 `?returnUrl=<path+search>`; a `try` route continues unauthenticated.
-Credentials are `{ user, authorizedSpecies }`. The optional `authorize`
+Credentials are `{ user, authorizedSpecies, caller }`, where `caller` is the
+hub's own service name (`lis-hubs-<hubId>`), matching the `caller` a spoke
+sees. `hubId` is required and must be a registry hub id. The optional `authorize`
 predicate runs for authenticated requests only; `false` gives a 403.
 
 `resolveAuthSession` can refuse a login (e.g. a user not on an allow-list) by

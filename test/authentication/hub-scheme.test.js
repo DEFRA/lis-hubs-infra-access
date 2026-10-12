@@ -30,6 +30,7 @@ async function createServer(overrides = {}) {
 
   await server.register(
     createHubAuth({
+      hubId: 'back-office',
       getHubJwtCookieName: () => 'hub-jwt',
       getCookieOptions: () => ({ isSecure: false }),
       getHubJwtConfig: () => ({}),
@@ -137,7 +138,46 @@ describe('lis-hub-session scheme', () => {
     expect(
       credentials.authorizedSpecies.some(({ id }) => id === 'cattle')
     ).toBe(true)
+    expect(credentials.caller).toBe('lis-hubs-back-office')
     expect(response.result.hasLegacyFields).toBe(false)
+  })
+
+  test('throws when no hubId is given', async () => {
+    // Arrange
+    const overrides = { hubId: undefined }
+
+    // Act
+    let server, error
+    try {
+      server = await createServer(overrides)
+    } catch (e) {
+      error = e
+    }
+
+    // Assert
+    expect(server).toBeUndefined()
+    expect(error.message).toBe(
+      'createHubAuth() requires a hubId of front-office or back-office'
+    )
+  })
+
+  test('throws when the hubId is not a registry hub', async () => {
+    // Arrange
+    const overrides = { hubId: 'cattle-home' }
+
+    // Act
+    let server, error
+    try {
+      server = await createServer(overrides)
+    } catch (e) {
+      error = e
+    }
+
+    // Assert
+    expect(server).toBeUndefined()
+    expect(error.message).toBe(
+      'createHubAuth() requires a hubId of front-office or back-office'
+    )
   })
 
   test('returns 403 when authorize returns false', async () => {

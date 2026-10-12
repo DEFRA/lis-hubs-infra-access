@@ -1,5 +1,6 @@
 import Boom from '@hapi/boom'
 import { logger } from '@defra/lis-hubs-infra-core'
+import { HUBS } from '@defra/lis-hubs-infra-registry'
 
 import {
   clearHubAuthSession,
@@ -249,7 +250,7 @@ function createHubAuthRegistration(options) {
   }
 }
 
-function createHubSessionScheme(loginPath) {
+function createHubSessionScheme({ loginPath, caller }) {
   return () => ({
     authenticate(request, h) {
       const authSession = getHubAuthSession(request)
@@ -258,7 +259,11 @@ function createHubSessionScheme(loginPath) {
         const user = hydrateAuthorization(authSession)
 
         return h.authenticated({
-          credentials: { user, authorizedSpecies: getAuthorizedSpecies(user) }
+          credentials: {
+            user,
+            authorizedSpecies: getAuthorizedSpecies(user),
+            caller
+          }
         })
       }
 
@@ -283,10 +288,13 @@ function createHubSessionScheme(loginPath) {
  * strategy, made the server's default. Signed-out requests to `required`
  * routes redirect to the first login route with a `returnUrl`; `try` routes
  * run unauthenticated. Identity is on `request.auth.credentials`
- * (`{ user, authorizedSpecies }`).
+ * (`{ user, authorizedSpecies, caller }`), where `caller` is the hub's own
+ * service name (`lis-hubs-<hubId>`) so views and handlers can read which hub
+ * a request belongs to the same way in a hub as in a spoke.
  *
  * @param {object} options - Plugin configuration options.
  * @param {string} [options.pluginName='auth'] - Name of the plugin.
+ * @param {string} options.hubId - Registry id of this hub: 'front-office' or 'back-office'.
  * @param {Function} options.getHubJwtCookieName - Function that returns the JWT cookie name.
  * @param {Function} options.getCookieOptions - Function that returns cookie options.
  * @param {Function} options.getHubJwtConfig - Function that returns JWT configuration.
@@ -299,15 +307,28 @@ function createHubSessionScheme(loginPath) {
  * @param {(user: object, request: object) => boolean | Promise<boolean>} [options.authorize] - Optional hub-wide rule for authenticated requests; `false` gives a 403.
  * @returns {{plugin: {name: string, register: Function}}} Hapi plugin object with registration function.
  */
-export function createHubAuth({ pluginName = 'auth', authorize, ...options }) {
+export function createHubAuth({
+  pluginName = 'auth',
+  hubId,
+  authorize,
+  ...options
+}) {
+  if (!HUBS.includes(hubId)) {
+    throw new Error(`createHubAuth() requires a hubId of ${HUBS.join(' or ')}`)
+  }
+
   const register = createHubAuthRegistration(options)
   const loginPath = options.loginRoutes[0].path
+  const caller = `lis-hubs-${hubId}`
 
   return {
     plugin: {
       name: pluginName,
       register(server) {
-        server.auth.scheme(HUB_AUTH_STRATEGY, createHubSessionScheme(loginPath))
+        server.auth.scheme(
+          HUB_AUTH_STRATEGY,
+          createHubSessionScheme({ loginPath, caller })
+        )
         server.auth.strategy(HUB_AUTH_STRATEGY, HUB_AUTH_STRATEGY)
         server.auth.default(HUB_AUTH_STRATEGY)
 
