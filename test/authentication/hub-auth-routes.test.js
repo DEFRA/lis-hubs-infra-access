@@ -54,6 +54,7 @@ function registerPlugin(overrides = {}) {
   let routes
   const state = vi.fn()
   const plugin = createHubAuth({
+    hubId: 'front-office',
     getHubJwtCookieName: () => 'hub-jwt',
     getCookieOptions: () => ({ isSecure: false }),
     getHubJwtConfig: () => jwtConfig,
