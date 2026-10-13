@@ -300,7 +300,7 @@ function createLogoutUrlBuilder({
    * @param {object} [options]
    * @param {object} [options.authSession] - Session to sign out instead of the stored hub session (e.g. a refused login that was never stored).
    * @param {string} [options.returnPath] - Hub path the provider returns to after sign-out; defaults to the hub origin.
-   * @returns {Promise<string>} The provider's end-session URL.
+   * @returns {Promise<string>} The provider's end-session URL, or the return URL itself when the provider has no end-session endpoint.
    */
   return async function buildLogoutUrl(
     request,
@@ -308,10 +308,17 @@ function createLogoutUrlBuilder({
   ) {
     const providerId = authSession?.authProvider ?? getPrimaryProviderId?.()
     const metadata = await getOidcMetadata(providerId)
-    const logoutUrl = new URL(metadata.end_session_endpoint)
     const postLogoutRedirectUri = returnPath
       ? new URL(returnPath, getHubOrigin()).toString()
       : getHubOrigin()
+
+    // A provider without an end-session endpoint cannot be signed out of, so
+    // the user goes straight to where it would have returned them.
+    if (!metadata.end_session_endpoint) {
+      return postLogoutRedirectUri
+    }
+
+    const logoutUrl = new URL(metadata.end_session_endpoint)
 
     logoutUrl.searchParams.set(
       'post_logout_redirect_uri',

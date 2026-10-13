@@ -467,3 +467,18 @@ test('signs out a given session and returns to a hub path', async () => {
   )
   assert.equal(logoutUrl.searchParams.get('id_token_hint'), 'refused-id-token')
 })
+
+test('returns straight to the hub path when the provider has no end-session endpoint', async () => {
+  // Arrange
+  const { end_session_endpoint: _omitted, ...metadataWithoutEndSession } =
+    metadata
+  mockDiscovery(metadataWithoutEndSession)
+
+  // Act
+  const logoutUrl = await createClient().buildLogoutUrl(createRequest(), {
+    returnPath: '/auth/not-authorised'
+  })
+
+  // Assert
+  assert.equal(logoutUrl, 'https://hub.example/auth/not-authorised')
+})

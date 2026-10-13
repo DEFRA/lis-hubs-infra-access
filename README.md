@@ -116,28 +116,38 @@ await server.register(
     completeAuthorizationCodeGrant,
     buildLogoutUrl,
     loginRoutes,
-    accessDeniedPath: '/auth/access-denied', // optional
+    notAuthorisedPath: '/auth/access-denied', // optional, defaults to '/auth/not-authorised'
     authorize: async (user, request) => true // optional
   })
 )
 ```
 
 Registers the hub JWT cookie state, the login, `/sso`, `/auth/logout` and
-`/signout` routes, all with `auth: false`, plus the `lis-hub-session`
+`/signout` routes and the not-authorised route, all with `auth: false`, plus the `lis-hub-session`
 scheme as the default strategy, backed by the yar hub session. A signed-out
 user on a required route is redirected to the first login route with
 `?returnUrl=<path+search>`; a `try` route continues unauthenticated.
 Credentials are `{ user, authorizedSpecies, caller }`, where `caller` is the
 hub's own service name (`lis-hubs-<hubId>`), matching the `caller` a spoke
 sees. `hubId` is required and must be a registry hub id. The optional `authorize`
-predicate runs for authenticated requests only; `false` gives a 403.
+predicate runs for authenticated requests only; `false` refuses the request
+(see below).
 
-`resolveAuthSession` can refuse a login (e.g. a user not on an allow-list) by
-returning `{ denied: true }`: the callback then sets no session or JWT and
-signs the user out of the identity provider, which returns them to
-`accessDeniedPath` (or the hub origin when that isn't set). The hub registers
-the `accessDeniedPath` route itself, and the provider must accept it as a
-post-logout redirect URI.
+A hub-level refusal signs the user out and lands them on the not-authorised
+page rather than the login route, which with single sign-on could loop.
+`resolveAuthSession` refuses a login (e.g. a user not on an allow-list) by
+returning `{ denied: true }`, and `authorize` refuses a signed-in user by
+returning `false`. Either way the hub session is cleared, the JWT cookie is
+unset, and the user is signed out of the identity provider, which returns them
+to `notAuthorisedPath`; if the provider has no end-session endpoint they are
+redirected there directly. The provider must accept the path as a post-logout
+redirect URI.
+
+By default `notAuthorisedPath` is `/auth/not-authorised`, registered by this
+plugin: it renders the `error/not-authorised` view (from
+`@defra/lis-infra-ui-services`) with a 403, `pageTitle` and a `signInHref` of
+the first login route. A hub that sets its own `notAuthorisedPath` registers
+that route itself. Spoke-level 403s and record-level 404s are not affected.
 
 ### Testing routes
 

@@ -180,10 +180,13 @@ describe('lis-hub-session scheme', () => {
     )
   })
 
-  test('returns 403 when authorize returns false', async () => {
+  test('signs the user out to the not-authorised page when authorize returns false', async () => {
     // Arrange
     const authorize = vi.fn(async () => false)
-    const server = await createServer({ authorize })
+    const buildLogoutUrl = vi.fn(
+      async () => 'https://identity.example/logout?refused'
+    )
+    const server = await createServer({ authorize, buildLogoutUrl })
 
     // Act
     const response = await server.inject({
@@ -192,11 +195,69 @@ describe('lis-hub-session scheme', () => {
     })
 
     // Assert
-    expect(response.statusCode).toBe(403)
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe(
+      'https://identity.example/logout?refused'
+    )
+    expect(response.headers['set-cookie'][0]).toMatch(/^hub-jwt=;/)
+    expect(buildLogoutUrl.mock.calls[0][1]).toEqual({
+      authSession: signedInSession,
+      returnPath: '/auth/not-authorised'
+    })
+    expect(response.request.yar.get('hub-auth-session')).toBeUndefined()
     expect(authorize).toHaveBeenCalledWith(
       expect.objectContaining({ sub: 'user-1' }),
       expect.objectContaining({ path: '/page' })
     )
+  })
+
+  test('signs the user out to a custom not-authorised path when authorize returns false', async () => {
+    // Arrange
+    const buildLogoutUrl = vi.fn(async () => 'https://identity.example/logout')
+    const server = await createServer({
+      authorize: () => false,
+      buildLogoutUrl,
+      notAuthorisedPath: '/auth/access-denied'
+    })
+
+    // Act
+    const response = await server.inject({
+      url: '/page',
+      headers: sessionHeaders()
+    })
+
+    // Assert
+    expect(response.statusCode).toBe(302)
+    expect(buildLogoutUrl.mock.calls[0][1].returnPath).toBe(
+      '/auth/access-denied'
+    )
+  })
+
+  test('renders the not-authorised view with a 403 without running authorize', async () => {
+    // Arrange
+    const authorize = vi.fn(() => false)
+    const server = await createServer({ authorize })
+    // Stands in for @hapi/vision and the ui-services error views.
+    server.decorate('toolkit', 'view', function (template, context) {
+      return this.response({ template, context })
+    })
+
+    // Act
+    const response = await server.inject({
+      url: '/auth/not-authorised',
+      headers: sessionHeaders()
+    })
+
+    // Assert
+    expect(response.statusCode).toBe(403)
+    expect(response.result).toEqual({
+      template: 'error/not-authorised',
+      context: {
+        pageTitle: 'Sorry, you are not authorised to view this page.',
+        signInHref: '/auth/login'
+      }
+    })
+    expect(authorize).not.toHaveBeenCalled()
   })
 
   test('allows the request when authorize returns true', async () => {
@@ -242,6 +303,7 @@ describe('lis-hub-session scheme', () => {
     expect(routes.map(({ path }) => path).sort()).toEqual([
       '/auth/login',
       '/auth/logout',
+      '/auth/not-authorised',
       '/signout',
       '/sso'
     ])
