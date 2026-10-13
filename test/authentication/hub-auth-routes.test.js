@@ -46,6 +46,7 @@ function createToolkit() {
     continue: Symbol('continue'),
     redirect: vi.fn(() => response),
     response: vi.fn(() => response),
+    view: vi.fn(() => response),
     result: response
   }
 }
@@ -107,7 +108,8 @@ describe('createHubAuth()', () => {
       '/auth/login',
       '/sso',
       '/auth/logout',
-      '/signout'
+      '/signout',
+      '/auth/not-authorised'
     ])
     expect(state.mock.calls[0]).toEqual(['hub-jwt', { isSecure: false }])
   })
@@ -210,7 +212,7 @@ describe('createHubAuth()', () => {
     expect(resolveAuthSession).not.toHaveBeenCalled()
   })
 
-  test('callback signs a denied user out of the provider without issuing a session or JWT', async () => {
+  test('callback signs a denied user out of the provider to the not-authorised page without issuing a session or JWT', async () => {
     // Arrange
     const authSession = { sub: 'user-1', idToken: 'id-token' }
     const buildLogoutUrl = vi.fn(
@@ -223,8 +225,7 @@ describe('createHubAuth()', () => {
         returnUrl: '/cattle'
       }),
       resolveAuthSession: async () => ({ denied: true }),
-      buildLogoutUrl,
-      accessDeniedPath: '/auth/access-denied'
+      buildLogoutUrl
     })
     const request = createRequest(
       new Map([
@@ -240,7 +241,7 @@ describe('createHubAuth()', () => {
     // Assert
     expect(buildLogoutUrl.mock.calls[0]).toEqual([
       request,
-      { authSession, returnPath: '/auth/access-denied' }
+      { authSession, returnPath: '/auth/not-authorised' }
     ])
     expect(h.redirect.mock.calls[0][0]).toBe(
       'https://identity.example/logout?denied'
@@ -253,7 +254,7 @@ describe('createHubAuth()', () => {
     expect(request.yar.get('hub-auth-session')).toBeUndefined()
   })
 
-  test('callback signs a denied user out to the hub origin when no access denied path is set', async () => {
+  test('callback signs a denied user out to a custom not-authorised path when one is set', async () => {
     // Arrange
     const buildLogoutUrl = vi.fn(async () => 'https://identity.example/logout')
     const { routes } = registerPlugin({
@@ -263,17 +264,26 @@ describe('createHubAuth()', () => {
         returnUrl: '/cattle'
       }),
       resolveAuthSession: async () => ({ denied: true }),
-      buildLogoutUrl
+      buildLogoutUrl,
+      notAuthorisedPath: '/auth/access-denied'
     })
-    const request = createRequest()
+    const request = createRequest(
+      new Map([['hub-auth-session', { sub: 'previous-user' }]])
+    )
     const h = createToolkit()
 
     // Act
     await routes[1].handler(request, h)
 
     // Assert
-    expect(buildLogoutUrl.mock.calls[0][1].returnPath).toBeUndefined()
+    expect(buildLogoutUrl.mock.calls[0][1].returnPath).toBe(
+      '/auth/access-denied'
+    )
     expect(h.redirect.mock.calls[0][0]).toBe('https://identity.example/logout')
+    expect(h.result.unstate.mock.calls[0]).toEqual([
+      'hub-jwt',
+      { isSecure: false }
+    ])
     expect(request.yar.get('hub-auth-session')).toBeUndefined()
   })
 
@@ -317,6 +327,45 @@ describe('createHubAuth()', () => {
     ])
     expect(request.yar.get('hub-auth-session')).toBeUndefined()
     expect(request.yar.get('hub-auth-flow')).toBeUndefined()
+  })
+
+  test('not-authorised renders the shared view with a 403 and a sign in link', () => {
+    // Arrange
+    const request = createRequest()
+    const h = createToolkit()
+    const { routes } = registerPlugin({
+      loginRoutes: [{ path: '/auth/sign-in', providerId: 'entra' }]
+    })
+
+    // Act
+    routes[4].handler(request, h)
+
+    // Assert
+    expect(routes[4].path).toBe('/auth/not-authorised')
+    expect(routes[4].options.auth).toBe(false)
+    expect(h.view.mock.calls[0]).toEqual([
+      'error/not-authorised',
+      {
+        pageTitle: 'Sorry, you are not authorised to view this page.',
+        signInHref: '/auth/sign-in'
+      }
+    ])
+    expect(h.result.code.mock.calls[0][0]).toBe(403)
+  })
+
+  test('does not register the shared not-authorised route when the hub sets its own path', () => {
+    // Arrange / Act
+    const { routes } = registerPlugin({
+      notAuthorisedPath: '/auth/access-denied'
+    })
+
+    // Assert
+    expect(routes.map(({ path }) => path)).toEqual([
+      '/auth/login',
+      '/sso',
+      '/auth/logout',
+      '/signout'
+    ])
   })
 
   test('signout redirects to the logout route', () => {
