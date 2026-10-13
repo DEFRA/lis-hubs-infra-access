@@ -1,7 +1,11 @@
 import Hapi from '@hapi/hapi'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
-vi.mock('@defra/lis-hubs-infra-core', () => ({ logger: { error: vi.fn() } }))
+const { logger } = vi.hoisted(() => ({
+  logger: { error: vi.fn(), warn: vi.fn() }
+}))
+
+vi.mock('@defra/lis-hubs-infra-core', () => ({ logger }))
 
 import { createHubAuth } from '../../src/authentication/hub-auth.js'
 
@@ -177,6 +181,78 @@ describe('lis-hub-session scheme', () => {
     expect(server).toBeUndefined()
     expect(error.message).toBe(
       'createHubAuth() requires a hubId of front-office or back-office'
+    )
+  })
+
+  test('throws when the renamed accessDeniedPath option is given', async () => {
+    // Arrange
+    const overrides = { accessDeniedPath: '/auth/access-denied' }
+
+    // Act
+    let server, error
+    try {
+      server = await createServer(overrides)
+    } catch (e) {
+      error = e
+    }
+
+    // Assert
+    expect(server).toBeUndefined()
+    expect(error).toBeInstanceOf(TypeError)
+    expect(error.message).toBe(
+      'createHubAuth() accessDeniedPath was renamed to notAuthorisedPath'
+    )
+  })
+
+  test.each([
+    'https://evil.example/not-authorised',
+    '//evil.example/not-authorised',
+    'auth/not-authorised',
+    '',
+    42
+  ])('throws when notAuthorisedPath is not a hub path (%s)', async (path) => {
+    // Arrange
+    const overrides = { notAuthorisedPath: path }
+
+    // Act
+    let server, error
+    try {
+      server = await createServer(overrides)
+    } catch (e) {
+      error = e
+    }
+
+    // Assert
+    expect(server).toBeUndefined()
+    expect(error).toBeInstanceOf(TypeError)
+    expect(error.message).toBe(
+      "createHubAuth() requires notAuthorisedPath to be a hub path starting with '/'"
+    )
+  })
+
+  test('signs the user out of the hub to the not-authorised page when the logout URL cannot be built', async () => {
+    // Arrange
+    const buildLogoutUrl = vi.fn(async () => {
+      throw new Error('discovery unavailable')
+    })
+    const server = await createServer({
+      authorize: () => false,
+      buildLogoutUrl
+    })
+
+    // Act
+    const response = await server.inject({
+      url: '/page',
+      headers: sessionHeaders()
+    })
+
+    // Assert
+    expect(response.statusCode).toBe(302)
+    expect(response.headers.location).toBe('/auth/not-authorised')
+    expect(response.headers['set-cookie'][0]).toMatch(/^hub-jwt=;/)
+    expect(response.request.yar.get('hub-auth-session')).toBeUndefined()
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Failed to build OIDC logout URL for a refused user [cause=discovery unavailable]'
     )
   })
 

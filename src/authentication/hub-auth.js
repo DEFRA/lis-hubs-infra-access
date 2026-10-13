@@ -45,10 +45,21 @@ function createRefuseAccess({
     h,
     authSession = getHubAuthSession(request)
   ) {
-    const logoutUrl = await buildLogoutUrl(request, {
-      authSession,
-      returnPath: notAuthorisedPath
-    })
+    let logoutUrl
+
+    // An unavailable identity provider must not leave a refused user signed
+    // in, so they are still signed out of the hub and sent to the landing page.
+    try {
+      logoutUrl = await buildLogoutUrl(request, {
+        authSession,
+        returnPath: notAuthorisedPath
+      })
+    } catch (error) {
+      logger.warn(
+        `Failed to build OIDC logout URL for a refused user [cause=${error?.message}]`
+      )
+      logoutUrl = notAuthorisedPath
+    }
 
     clearHubAuthSession(request)
 
@@ -375,6 +386,25 @@ export function createHubAuth({
 }) {
   if (!HUBS.includes(hubId)) {
     throw new Error(`createHubAuth() requires a hubId of ${HUBS.join(' or ')}`)
+  }
+
+  if ('accessDeniedPath' in options) {
+    throw new TypeError(
+      'createHubAuth() accessDeniedPath was renamed to notAuthorisedPath'
+    )
+  }
+
+  if (
+    notAuthorisedPath !== undefined &&
+    !(
+      typeof notAuthorisedPath === 'string' &&
+      notAuthorisedPath.startsWith('/') &&
+      !notAuthorisedPath.startsWith('//')
+    )
+  ) {
+    throw new TypeError(
+      "createHubAuth() requires notAuthorisedPath to be a hub path starting with '/'"
+    )
   }
 
   const landingPath = notAuthorisedPath ?? DEFAULT_NOT_AUTHORISED_PATH

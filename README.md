@@ -139,8 +139,10 @@ page rather than the login route, which with single sign-on could loop.
 returning `{ denied: true }`, and `authorize` refuses a signed-in user by
 returning `false`. Either way the hub session is cleared, the JWT cookie is
 unset, and the user is signed out of the identity provider, which returns them
-to `notAuthorisedPath`; if the provider has no end-session endpoint they are
-redirected there directly. The provider must accept the path as a post-logout
+to `notAuthorisedPath`; if the provider has no end-session endpoint, or its
+logout URL cannot be built, they are redirected there directly.
+`notAuthorisedPath` must be a hub path starting with `/`, and the old
+`accessDeniedPath` option is rejected. The provider must accept the path as a post-logout
 redirect URI.
 
 By default `notAuthorisedPath` is `/auth/not-authorised`, registered by this
