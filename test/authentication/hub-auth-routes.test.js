@@ -346,7 +346,7 @@ describe('createHubAuth()', () => {
     expect(h.view.mock.calls[0]).toEqual([
       'error/not-authorised',
       {
-        pageTitle: 'Sorry, you are not authorised to view this page.',
+        pageTitle: 'Sorry, you are not authorised to view this page',
         signInHref: '/auth/sign-in'
       }
     ])

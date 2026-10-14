@@ -226,7 +226,7 @@ function createNotAuthorisedRoute({ path, loginPath }) {
       // The view comes from @defra/lis-infra-ui-services, which every hub registers.
       return h
         .view('error/not-authorised', {
-          pageTitle: 'Sorry, you are not authorised to view this page.',
+          pageTitle: 'Sorry, you are not authorised to view this page',
           signInHref: loginPath
         })
         .code(Forbidden)

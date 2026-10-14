@@ -329,7 +329,7 @@ describe('lis-hub-session scheme', () => {
     expect(response.result).toEqual({
       template: 'error/not-authorised',
       context: {
-        pageTitle: 'Sorry, you are not authorised to view this page.',
+        pageTitle: 'Sorry, you are not authorised to view this page',
         signInHref: '/auth/login'
       }
     })
