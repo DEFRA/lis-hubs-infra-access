@@ -433,8 +433,8 @@ export function createHubAuth({
   })
   // The hub-wide rule, applied wherever a JWT is issued and on every
   // authenticated request. Without a rule every signed-in user is authorised.
-  const isAuthorized = async (authSession, request) =>
-    !authorize || (await authorize(hydrateAuthorization(authSession), request))
+  const isAuthorized = (authSession, request) =>
+    !authorize || authorize(hydrateAuthorization(authSession), request)
   const register = createHubAuthRegistration({
     ...options,
     notAuthorisedPath: landingPath,
