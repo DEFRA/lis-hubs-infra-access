@@ -23,50 +23,36 @@ const Forbidden = 403
 const DEFAULT_NOT_AUTHORISED_PATH = '/auth/not-authorised'
 
 /**
- * Builds the shared response for a hub-level refusal: the user is signed out
- * of the hub and the identity provider and lands on the not-authorised page.
- * With single sign-on, sending them back to login instead could loop.
+ * Builds the shared response for a hub-level refusal. Authentication and
+ * authorisation are kept apart: the user stays signed in to the hub, but no
+ * spoke JWT is issued and they land on the not-authorised page, which offers
+ * Sign out. A refused sign-in stores its session flagged `refused` so every
+ * later request is sent to the same page without re-running the hub's checks.
  *
  * @param {object} options
- * @param {Function} options.buildLogoutUrl - Builds the identity provider's end-session URL.
  * @param {Function} options.getHubJwtCookieName - Returns the hub JWT cookie name.
  * @param {Function} options.getCookieOptions - Returns the hub JWT cookie options.
- * @param {string} options.notAuthorisedPath - Hub path the provider returns the user to.
- * @returns {(request: object, h: object, authSession?: object) => Promise<object>} Clears the session and returns the redirect.
+ * @param {string} options.notAuthorisedPath - Hub path the user lands on.
+ * @returns {(request: object, h: object, authSession?: object) => object} Returns the redirect.
  */
 function createRefuseAccess({
-  buildLogoutUrl,
   getHubJwtCookieName,
   getCookieOptions,
   notAuthorisedPath
 }) {
-  return async function refuseAccess(
-    request,
-    h,
-    authSession = getHubAuthSession(request)
-  ) {
-    let logoutUrl
-
-    // An unavailable identity provider must not leave a refused user signed
-    // in, so they are still signed out of the hub and sent to the landing page.
-    try {
-      logoutUrl = await buildLogoutUrl(request, {
-        authSession,
-        returnPath: notAuthorisedPath
-      })
-    } catch (error) {
-      logger.warn(
-        `Failed to build OIDC logout URL for a refused user [cause=${error?.message}]`
-      )
-      logoutUrl = notAuthorisedPath
+  return function refuseAccess(request, h, authSession) {
+    if (authSession) {
+      setHubAuthSession(request, { ...authSession, refused: true })
     }
 
-    clearHubAuthSession(request)
-
     return h
-      .redirect(logoutUrl)
+      .redirect(notAuthorisedPath)
       .unstate(getHubJwtCookieName(), getCookieOptions())
   }
+}
+
+function isRefusedSession(authSession) {
+  return authSession?.refused === true
 }
 
 function createLoginController({
@@ -74,7 +60,10 @@ function createLoginController({
   getHubJwtConfig,
   getHubJwtCookieName,
   providerId,
-  buildAuthorizationUrl
+  buildAuthorizationUrl,
+  notAuthorisedPath,
+  isAuthorized,
+  refuseAccess
 }) {
   return {
     options: {
@@ -84,7 +73,17 @@ function createLoginController({
       const authSession = getHubAuthSession(request)
       const returnUrl = getReturnUrlFromRequest(request)
 
+      if (isRefusedSession(authSession)) {
+        return h.redirect(notAuthorisedPath)
+      }
+
+      // A JWT is only ever issued to an authorised session: this route is
+      // auth: false, so the onPostAuth hook does not guard it.
       if (authSession) {
+        if (!(await isAuthorized(authSession, request))) {
+          return refuseAccess(request, h)
+        }
+
         const jwt = await issueHubJwt(authSession, getHubJwtConfig())
 
         return h
@@ -128,6 +127,7 @@ function createCallbackController({
   completeAuthorizationCodeGrant,
   resolveAuthSession,
   refuseAccess,
+  isAuthorized,
   loginPath
 }) {
   return {
@@ -156,10 +156,10 @@ function createCallbackController({
         accessToken
       })
 
-      // The hub refused this identity (e.g. not on an allow-list): no session
-      // or JWT is issued, any earlier one is dropped, and the user is signed
-      // out of the identity provider so the next login asks for credentials.
-      // The refused login was never stored, so its session is passed in.
+      // The hub refused this identity (e.g. not on an allow-list): the user
+      // stays signed in to the hub so they can sign out from the
+      // not-authorised page, but the session is stored flagged refused and no
+      // JWT is issued, so no spoke is reachable.
       if (authorization?.denied) {
         return refuseAccess(request, h, authSession)
       }
@@ -168,9 +168,16 @@ function createCallbackController({
         ...authSession,
         ...authorization
       }
-      const jwt = await issueHubJwt(enrichedAuthSession, getHubJwtConfig())
 
       setHubAuthSession(request, enrichedAuthSession)
+
+      // The hub-wide rule runs before the JWT is minted, so a user it refuses
+      // never reaches a spoke, and lands on the not-authorised page signed in.
+      if (!(await isAuthorized(enrichedAuthSession, request))) {
+        return refuseAccess(request, h)
+      }
+
+      const jwt = await issueHubJwt(enrichedAuthSession, getHubJwtConfig())
 
       return h
         .redirect(returnUrl)
@@ -220,14 +227,19 @@ function createNotAuthorisedRoute({ path, loginPath }) {
     method: 'GET',
     path,
     options: {
-      auth: false
+      auth: { mode: 'try' }
     },
-    handler(_request, h) {
-      // The view comes from @defra/lis-infra-ui-services, which every hub registers.
+    handler(request, h) {
+      // The view comes from @defra/lis-infra-ui-services, which every hub
+      // registers. A signed-in visitor is offered Sign out, anyone else Sign in.
+      const action = request.auth.isAuthenticated
+        ? { signOutHref: '/signout' }
+        : { signInHref: loginPath }
+
       return h
         .view('error/not-authorised', {
           pageTitle: 'Sorry, you are not authorised to view this page',
-          signInHref: loginPath
+          ...action
         })
         .code(Forbidden)
     }
@@ -256,7 +268,8 @@ function createHubAuthRegistration(options) {
     loginRoutes,
     notAuthorisedPath,
     registerNotAuthorisedRoute,
-    refuseAccess
+    refuseAccess,
+    isAuthorized
   } = options
   const loginPath = loginRoutes[0].path
   const callbackController = createCallbackController({
@@ -266,6 +279,7 @@ function createHubAuthRegistration(options) {
     completeAuthorizationCodeGrant,
     resolveAuthSession,
     refuseAccess,
+    isAuthorized,
     loginPath
   })
   const logoutController = createLogoutController({
@@ -282,7 +296,10 @@ function createHubAuthRegistration(options) {
         getHubJwtConfig,
         getHubJwtCookieName,
         providerId,
-        buildAuthorizationUrl
+        buildAuthorizationUrl,
+        notAuthorisedPath,
+        isAuthorized,
+        refuseAccess
       })
     })),
     {
@@ -330,7 +347,8 @@ function createHubSessionScheme({ loginPath, caller }) {
           credentials: {
             user,
             authorizedSpecies: getAuthorizedSpecies(user),
-            caller
+            caller,
+            ...(isRefusedSession(authSession) ? { refused: true } : {})
           }
         })
       }
@@ -373,8 +391,8 @@ function createHubSessionScheme({ loginPath, caller }) {
  * @param {Function} options.completeAuthorizationCodeGrant - Function to complete OIDC authorization code flow.
  * @param {Function} options.buildLogoutUrl - Function to build logout URL.
  * @param {Array<{path: string, providerId: string|Function}>} options.loginRoutes - Login route configurations; the first is where signed-out users are sent.
- * @param {string} [options.notAuthorisedPath='/auth/not-authorised'] - Where a user lands after a hub-level refusal (`resolveAuthSession` returning `{ denied: true }`, or `authorize` returning `false`). They are signed out of the hub and the identity provider first, which returns them here. The default path is registered by this plugin and renders the `error/not-authorised` view with a 403 and a Sign in link to the first login route; a hub that sets its own path registers that route itself.
- * @param {(user: object, request: object) => boolean | Promise<boolean>} [options.authorize] - Optional hub-wide rule for authenticated requests; `false` signs the user out to `notAuthorisedPath`.
+ * @param {string} [options.notAuthorisedPath='/auth/not-authorised'] - Where a user lands after a hub-level refusal (`resolveAuthSession` returning `{ denied: true }`, or `authorize` returning `false`). They stay signed in to the hub, with no spoke JWT, and every other authenticated request is redirected here until they sign out. The default path is registered by this plugin with `auth: try` and renders the `error/not-authorised` view with a 403, offering Sign out to a signed-in visitor and Sign in (to the first login route) to anyone else. A hub that sets its own path registers that route itself and should do the same.
+ * @param {(user: object, request: object) => boolean | Promise<boolean>} [options.authorize] - Optional hub-wide rule for authenticated requests; `false` redirects the user to `notAuthorisedPath` without signing them out.
  * @returns {{plugin: {name: string, register: Function}}} Hapi plugin object with registration function.
  */
 export function createHubAuth({
@@ -409,16 +427,20 @@ export function createHubAuth({
 
   const landingPath = notAuthorisedPath ?? DEFAULT_NOT_AUTHORISED_PATH
   const refuseAccess = createRefuseAccess({
-    buildLogoutUrl: options.buildLogoutUrl,
     getHubJwtCookieName: options.getHubJwtCookieName,
     getCookieOptions: options.getCookieOptions,
     notAuthorisedPath: landingPath
   })
+  // The hub-wide rule, applied wherever a JWT is issued and on every
+  // authenticated request. Without a rule every signed-in user is authorised.
+  const isAuthorized = (authSession, request) =>
+    !authorize || authorize(hydrateAuthorization(authSession), request)
   const register = createHubAuthRegistration({
     ...options,
     notAuthorisedPath: landingPath,
     registerNotAuthorisedRoute: notAuthorisedPath === undefined,
-    refuseAccess
+    refuseAccess,
+    isAuthorized
   })
   const loginPath = options.loginRoutes[0].path
   const caller = `lis-hubs-${hubId}`
@@ -436,20 +458,19 @@ export function createHubAuth({
 
         register(server)
 
-        if (authorize) {
-          server.ext('onPostAuth', async (request, h) => {
-            if (
-              request.auth.isAuthenticated &&
-              !(await authorize(request.auth.credentials.user, request))
-            ) {
-              const response = await refuseAccess(request, h)
-
-              return response.takeover()
-            }
-
+        server.ext('onPostAuth', async (request, h) => {
+          if (!request.auth.isAuthenticated || request.path === landingPath) {
             return h.continue
-          })
-        }
+          }
+
+          const { user, refused } = request.auth.credentials
+
+          if (refused || (authorize && !(await authorize(user, request)))) {
+            return refuseAccess(request, h).takeover()
+          }
+
+          return h.continue
+        })
       }
     }
   }
