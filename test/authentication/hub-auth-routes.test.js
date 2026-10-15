@@ -137,6 +137,58 @@ describe('createHubAuth()', () => {
     )
   })
 
+  test('login refuses a signed-in session that fails authorize without issuing a JWT', async () => {
+    // Arrange
+    const authorize = vi.fn(async () => false)
+    const { routes } = registerPlugin({ authorize })
+    const request = createRequest(
+      new Map([['hub-auth-session', { sub: 'user-1', statements: [] }]])
+    )
+    const h = createToolkit()
+
+    // Act
+    await routes[0].handler(request, h)
+
+    // Assert
+    expect(authorize).toHaveBeenCalledWith(
+      expect.objectContaining({ sub: 'user-1' }),
+      request
+    )
+    expect(h.redirect.mock.calls[0][0]).toBe('/auth/not-authorised')
+    expect(h.result.state).not.toHaveBeenCalled()
+    expect(h.result.unstate.mock.calls[0][0]).toBe('hub-jwt')
+  })
+
+  test('callback stores the session but refuses a user that fails authorize without issuing a JWT', async () => {
+    // Arrange
+    const authorize = vi.fn(async () => false)
+    const { routes } = registerPlugin({
+      authorize,
+      completeAuthorizationCodeGrant: async () => ({
+        user: { sub: 'user-1' },
+        authSession: { sub: 'user-1' },
+        returnUrl: '/cattle'
+      }),
+      resolveAuthSession: async () => ({ statements: [] })
+    })
+    const request = createRequest(
+      new Map([['hub-auth-flow', { state: 'state-1' }]])
+    )
+    const h = createToolkit()
+
+    // Act
+    await routes[1].handler(request, h)
+
+    // Assert
+    expect(request.yar.get('hub-auth-session')).toEqual({
+      sub: 'user-1',
+      statements: []
+    })
+    expect(h.redirect.mock.calls[0][0]).toBe('/auth/not-authorised')
+    expect(h.result.state).not.toHaveBeenCalled()
+    expect(h.result.unstate.mock.calls[0][0]).toBe('hub-jwt')
+  })
+
   test('login returns 503 when the identity provider is unavailable', async () => {
     // Arrange
     const error = new Error('offline')
@@ -212,12 +264,10 @@ describe('createHubAuth()', () => {
     expect(resolveAuthSession).not.toHaveBeenCalled()
   })
 
-  test('callback signs a denied user out of the provider to the not-authorised page without issuing a session or JWT', async () => {
+  test('callback keeps a denied user signed in, flagged refused, and sends them to the not-authorised page without a JWT', async () => {
     // Arrange
     const authSession = { sub: 'user-1', idToken: 'id-token' }
-    const buildLogoutUrl = vi.fn(
-      async () => 'https://identity.example/logout?denied'
-    )
+    const buildLogoutUrl = vi.fn(async () => 'https://identity.example/logout')
     const { routes } = registerPlugin({
       completeAuthorizationCodeGrant: async () => ({
         user: { sub: 'user-1' },
@@ -239,24 +289,21 @@ describe('createHubAuth()', () => {
     await routes[1].handler(request, h)
 
     // Assert
-    expect(buildLogoutUrl.mock.calls[0]).toEqual([
-      request,
-      { authSession, returnPath: '/auth/not-authorised' }
-    ])
-    expect(h.redirect.mock.calls[0][0]).toBe(
-      'https://identity.example/logout?denied'
-    )
+    expect(buildLogoutUrl).not.toHaveBeenCalled()
+    expect(h.redirect.mock.calls[0][0]).toBe('/auth/not-authorised')
     expect(h.result.state).not.toHaveBeenCalled()
     expect(h.result.unstate.mock.calls[0]).toEqual([
       'hub-jwt',
       { isSecure: false }
     ])
-    expect(request.yar.get('hub-auth-session')).toBeUndefined()
+    expect(request.yar.get('hub-auth-session')).toEqual({
+      ...authSession,
+      refused: true
+    })
   })
 
-  test('callback signs a denied user out to a custom not-authorised path when one is set', async () => {
+  test('callback sends a denied user to a custom not-authorised path when one is set', async () => {
     // Arrange
-    const buildLogoutUrl = vi.fn(async () => 'https://identity.example/logout')
     const { routes } = registerPlugin({
       completeAuthorizationCodeGrant: async () => ({
         user: { sub: 'user-1' },
@@ -264,7 +311,6 @@ describe('createHubAuth()', () => {
         returnUrl: '/cattle'
       }),
       resolveAuthSession: async () => ({ denied: true }),
-      buildLogoutUrl,
       notAuthorisedPath: '/auth/access-denied'
     })
     const request = createRequest(
@@ -276,15 +322,32 @@ describe('createHubAuth()', () => {
     await routes[1].handler(request, h)
 
     // Assert
-    expect(buildLogoutUrl.mock.calls[0][1].returnPath).toBe(
-      '/auth/access-denied'
-    )
-    expect(h.redirect.mock.calls[0][0]).toBe('https://identity.example/logout')
+    expect(h.redirect.mock.calls[0][0]).toBe('/auth/access-denied')
     expect(h.result.unstate.mock.calls[0]).toEqual([
       'hub-jwt',
       { isSecure: false }
     ])
-    expect(request.yar.get('hub-auth-session')).toBeUndefined()
+    expect(request.yar.get('hub-auth-session')).toEqual({
+      sub: 'user-1',
+      refused: true
+    })
+  })
+
+  test('login sends a refused user to the not-authorised page without issuing a JWT', async () => {
+    // Arrange
+    const { routes } = registerPlugin()
+    const request = createRequest(
+      new Map([['hub-auth-session', { sub: 'user-1', refused: true }]])
+    )
+    request.query.returnUrl = '/cattle'
+    const h = createToolkit()
+
+    // Act
+    await routes[0].handler(request, h)
+
+    // Assert
+    expect(h.redirect.mock.calls[0][0]).toBe('/auth/not-authorised')
+    expect(h.result.state).not.toHaveBeenCalled()
   })
 
   test('callback surfaces errors returned by the identity provider', async () => {
@@ -329,9 +392,9 @@ describe('createHubAuth()', () => {
     expect(request.yar.get('hub-auth-flow')).toBeUndefined()
   })
 
-  test('not-authorised renders the shared view with a 403 and a sign in link', () => {
+  test('not-authorised renders the shared view with a 403 and a sign in link for a signed-out visitor', () => {
     // Arrange
-    const request = createRequest()
+    const request = { ...createRequest(), auth: { isAuthenticated: false } }
     const h = createToolkit()
     const { routes } = registerPlugin({
       loginRoutes: [{ path: '/auth/sign-in', providerId: 'entra' }]
@@ -342,12 +405,32 @@ describe('createHubAuth()', () => {
 
     // Assert
     expect(routes[4].path).toBe('/auth/not-authorised')
-    expect(routes[4].options.auth).toBe(false)
+    expect(routes[4].options.auth).toEqual({ mode: 'try' })
     expect(h.view.mock.calls[0]).toEqual([
       'error/not-authorised',
       {
         pageTitle: 'Sorry, you are not authorised to view this page',
         signInHref: '/auth/sign-in'
+      }
+    ])
+    expect(h.result.code.mock.calls[0][0]).toBe(403)
+  })
+
+  test('not-authorised offers sign out to a signed-in visitor', () => {
+    // Arrange
+    const request = { ...createRequest(), auth: { isAuthenticated: true } }
+    const h = createToolkit()
+    const { routes } = registerPlugin()
+
+    // Act
+    routes[4].handler(request, h)
+
+    // Assert
+    expect(h.view.mock.calls[0]).toEqual([
+      'error/not-authorised',
+      {
+        pageTitle: 'Sorry, you are not authorised to view this page',
+        signOutHref: '/signout'
       }
     ])
     expect(h.result.code.mock.calls[0][0]).toBe(403)
