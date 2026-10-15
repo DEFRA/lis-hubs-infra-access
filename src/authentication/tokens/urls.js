@@ -15,26 +15,30 @@ function normalizeForwardedPrefix(prefix) {
 }
 
 /**
+ * Reduces a requested return URL to a safe, same-origin path. Anything that
+ * is not an absolute path on the current origin - absolute URLs, and the
+ * protocol-relative "//host" and backslash "/\host" variants that browsers
+ * resolve off-site - collapses to "/".
  * @param {string} value
  * @returns {string}
  */
 export function sanitizeReturnUrl(value) {
-  if (!value) {
+  if (typeof value !== 'string' || !value.startsWith('/')) {
     return '/'
-  }
-
-  if (value.startsWith('/') && !value.startsWith('//')) {
-    return value
   }
 
   try {
-    const url = new URL(value)
+    // Resolve against a throwaway origin; the WHATWG parser normalises
+    // backslashes exactly as browsers do, so any off-site target changes the
+    // origin and is rejected.
+    const base = 'https://x.invalid'
+    const { origin, pathname, search, hash } = new URL(value, base)
 
-    if (['localhost', '127.0.0.1'].includes(url.hostname)) {
-      return url.toString()
+    if (origin === base) {
+      return `${pathname}${search}${hash}`
     }
   } catch {
-    return '/'
+    // Not parseable - fall through to the safe default.
   }
 
   return '/'

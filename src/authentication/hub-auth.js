@@ -212,13 +212,11 @@ function createLogoutController({
  *
  * @param {object} options - Cookie configuration options.
  * @param {number} options.ttlSeconds - Time to live in seconds for the cookie.
- * @param {boolean} options.isSecure - Whether the cookie should be secure (HTTPS only).
  * @returns {object} Cookie options compatible with Hapi server state configuration.
  */
-export function createHubCookieOptions({ ttlSeconds, isSecure }) {
+export function createHubCookieOptions({ ttlSeconds }) {
   return getHubJwtCookieOptions({
-    ttlSeconds,
-    isSecure
+    ttlSeconds
   })
 }
 
