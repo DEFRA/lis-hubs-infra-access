@@ -134,16 +134,24 @@ test('resolves hub origins from host, referer and configured fallback', () => {
 test('sanitizes unsafe return URLs', () => {
   expect(sanitizeReturnUrl()).toBe('/')
   expect(sanitizeReturnUrl('/safe/path')).toBe('/safe/path')
+  expect(sanitizeReturnUrl('/safe/path?step=1#frag')).toBe(
+    '/safe/path?step=1#frag'
+  )
   expect(sanitizeReturnUrl('//evil.example/path')).toBe('/')
   expect(sanitizeReturnUrl('https://evil.example/path')).toBe('/')
   expect(sanitizeReturnUrl('not a URL')).toBe('/')
-  expect(sanitizeReturnUrl('http://localhost:3000/local')).toBe(
-    'http://localhost:3000/local'
-  )
-  expect(sanitizeReturnUrl('http://127.0.0.1:3000/local')).toBe(
-    'http://127.0.0.1:3000/local'
-  )
+  // Backslash variants: browsers treat "\" as "/", so these resolve off-site.
+  expect(sanitizeReturnUrl('/\\evil.example')).toBe('/')
+  expect(sanitizeReturnUrl('/\\/evil.example')).toBe('/')
+  expect(sanitizeReturnUrl('\\\\evil.example')).toBe('/')
+  expect(sanitizeReturnUrl('/\\\\evil.example')).toBe('/')
+  // Absolute URLs to any host (localhost included) are no longer allowed.
+  expect(sanitizeReturnUrl('http://localhost:3000/local')).toBe('/')
+  expect(sanitizeReturnUrl('http://127.0.0.1:3000/local')).toBe('/')
   expect(
     getReturnUrlFromRequest({ query: { returnUrl: '//evil.example' } })
+  ).toBe('/')
+  expect(
+    getReturnUrlFromRequest({ query: { returnUrl: '/\\evil.example' } })
   ).toBe('/')
 })
