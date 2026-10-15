@@ -28,6 +28,7 @@ function createRequest(values = new Map()) {
     query: {},
     yar: {
       clear: (key) => values.delete(key),
+      reset: () => values.clear(),
       get: (key) => values.get(key),
       set: (key, value) => values.set(key, value)
     }
@@ -390,6 +391,30 @@ describe('createHubAuth()', () => {
     ])
     expect(request.yar.get('hub-auth-session')).toBeUndefined()
     expect(request.yar.get('hub-auth-flow')).toBeUndefined()
+  })
+
+  test('logout still invalidates the session when building the logout URL fails', async () => {
+    // Arrange
+    const request = createRequest(
+      new Map([['hub-auth-session', { sub: 'user-1' }]])
+    )
+    const h = createToolkit()
+    const buildLogoutUrl = vi.fn(async () => {
+      throw new Error('discovery failed')
+    })
+    const { routes } = registerPlugin({ buildLogoutUrl })
+
+    // Act
+    let error
+    try {
+      await routes[2].handler(request, h)
+    } catch (e) {
+      error = e
+    }
+
+    // Assert
+    expect(error).toBeInstanceOf(Error)
+    expect(request.yar.get('hub-auth-session')).toBeUndefined()
   })
 
   test('not-authorised renders the shared view with a 403 and a sign in link for a signed-out visitor', () => {
