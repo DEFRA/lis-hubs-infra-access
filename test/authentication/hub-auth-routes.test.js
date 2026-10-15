@@ -82,7 +82,7 @@ function registerPlugin(overrides = {}) {
 describe('createHubAuth()', () => {
   test('creates standard hub cookie options', () => {
     // Arrange / Act
-    const options = createHubCookieOptions({ ttlSeconds: 60, isSecure: true })
+    const options = createHubCookieOptions({ ttlSeconds: 60 })
 
     // Assert
     expect(options).toEqual({

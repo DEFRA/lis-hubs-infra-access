@@ -13,15 +13,17 @@ function getHubJwtSecret(secret) {
 }
 
 /**
- * @param {{ ttlSeconds: number, isSecure: boolean }} options
+ * @param {{ ttlSeconds: number }} options
  * @returns {object}
  */
-export function getHubJwtCookieOptions({ ttlSeconds, isSecure }) {
+export function getHubJwtCookieOptions({ ttlSeconds }) {
   return {
     encoding: 'none',
     ttl: ttlSeconds * MILLISECONDS_PER_SECOND,
     isHttpOnly: true,
-    isSecure,
+    // Secure is a fixed invariant: the browser always reaches the app over
+    // HTTPS (Caddy locally, the CDP edge deployed).
+    isSecure: true,
     isSameSite: 'Lax',
     clearInvalid: true,
     path: '/'
