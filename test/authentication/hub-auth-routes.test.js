@@ -28,6 +28,7 @@ function createRequest(values = new Map()) {
     query: {},
     yar: {
       clear: (key) => values.delete(key),
+      reset: () => values.clear(),
       get: (key) => values.get(key),
       set: (key, value) => values.set(key, value)
     }

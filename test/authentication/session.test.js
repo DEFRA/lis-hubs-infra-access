@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { test } from 'vitest'
+import { test, vi } from 'vitest'
 
 import {
   clearHubAuthFlow,
@@ -20,6 +20,7 @@ function createRequest() {
       clear(key) {
         values.delete(key)
       },
+      reset: vi.fn(() => values.clear()),
       get(key) {
         return values.get(key)
       },
@@ -66,15 +67,20 @@ test('stores and retrieves an authenticated session', () => {
   assert.equal(getHubAuthSession(request), session)
 })
 
-test('clearing a session also clears an in-progress flow', () => {
+test('clearing a session resets the yar session, including any in-progress flow', () => {
   const request = createRequest()
 
   setHubAuthSession(request, { sub: 'user-1' })
   setHubAuthFlow(request, { state: 'state-id' })
   clearHubAuthSession(request)
 
+  assert.equal(request.yar.reset.mock.calls.length, 1)
   assert.equal(getHubAuthSession(request), null)
   assert.equal(getHubAuthFlow(request), null)
+})
+
+test('clearing a session tolerates requests without yar', () => {
+  assert.doesNotThrow(() => clearHubAuthSession({}))
 })
 
 test('session helpers tolerate requests without yar where supported', () => {
