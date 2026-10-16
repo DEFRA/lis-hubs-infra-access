@@ -196,13 +196,18 @@ function createLogoutController({
       auth: false
     },
     async handler(request, h) {
-      const logoutUrl = await buildLogoutUrl(request)
+      // Build the logout URL while the session is still alive (it reads the
+      // id token for id_token_hint), but invalidate the session in `finally`
+      // so a failure building the URL cannot leave the session replayable.
+      try {
+        const logoutUrl = await buildLogoutUrl(request)
 
-      clearHubAuthSession(request)
-
-      return h
-        .redirect(logoutUrl)
-        .unstate(getHubJwtCookieName(), getCookieOptions())
+        return h
+          .redirect(logoutUrl)
+          .unstate(getHubJwtCookieName(), getCookieOptions())
+      } finally {
+        clearHubAuthSession(request)
+      }
     }
   }
 }

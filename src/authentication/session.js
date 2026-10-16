@@ -71,10 +71,9 @@ export function setHubAuthSession(request, authSession) {
 }
 
 /**
- * Clears both the hub authentication session and flow from the request.
+ * Fully resets the request's yar session (auth session and flow included).
  * @param {object} request - The Hapi request object with yar session support.
  */
 export function clearHubAuthSession(request) {
-  request?.yar?.clear?.(authSessionKey)
-  clearHubAuthFlow(request)
+  request?.yar?.reset?.()
 }
