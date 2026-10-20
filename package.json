@@ -35,16 +35,12 @@
   "dependencies": {
     "convict": "6.2.5",
     "convict-format-with-validator": "6.2.0",
-    "eslint-plugin-jsdoc": "^63.0.8",
-    "eslint-plugin-sonarjs": "^4.1.0",
-    "jose": "6.2.8",
-    "neostandard": "0.13.0"
+    "jose": "6.2.8"
   },
   "peerDependencies": {
     "@defra/lis-hubs-infra-core": ">=0.4.0 <1.0.0",
     "@defra/lis-hubs-infra-registry": ">=0.5.0 <1.0.0",
-    "@hapi/boom": "10.0.1",
-    "eslint": "^9.0.0"
+    "@hapi/boom": "10.0.1"
   },
   "devDependencies": {
     "@defra/lis-hubs-infra-core": "^0.12.0",
