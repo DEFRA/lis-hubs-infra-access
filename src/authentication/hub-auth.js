@@ -374,7 +374,7 @@ function createHubSessionScheme({ loginPath, caller }) {
  *
  * Registers the hub JWT cookie state, the login, `/sso`, `/auth/logout` and
  * `/signout` routes (all `auth: false`), the shared not-authorised route
- * (`auth: false`, unless the hub sets its own `notAuthorisedPath`), and the
+ * (`auth: { mode: 'try' }`, unless the hub sets its own `notAuthorisedPath`), and the
  * `lis-hub-session` scheme and
  * strategy, made the server's default. Signed-out requests to `required`
  * routes redirect to the first login route with a `returnUrl`; `try` routes
