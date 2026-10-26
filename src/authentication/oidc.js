@@ -12,11 +12,33 @@ import {
 import { getReturnUrlFromRequest, sanitizeReturnUrl } from './tokens/index.js'
 import { logger } from '@defra/lis-hubs-infra-core'
 
+const OAUTH_ERROR_PATTERN = /^[a-z_]{1,64}$/
+
+/**
+ * Reads only the OAuth `error` code from a failed response body. Other body
+ * fields (e.g. error_description) are free text and are never read.
+ * @param {Response} response
+ * @returns {Promise<string | undefined>}
+ */
+async function readOAuthErrorCode(response) {
+  try {
+    const body = await response.json()
+    return typeof body?.error === 'string' &&
+      OAUTH_ERROR_PATTERN.test(body.error)
+      ? body.error
+      : undefined
+  } catch {
+    return undefined
+  }
+}
+
 async function fetchJson(url, options = {}) {
   const response = await fetch(url, options)
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch ${url}: ${response.status}`)
+    const oauthError = await readOAuthErrorCode(response)
+    const suffix = oauthError ? ` ${oauthError}` : ''
+    throw new Error(`Failed to fetch ${url}: ${response.status}${suffix}`)
   }
 
   return response.json()

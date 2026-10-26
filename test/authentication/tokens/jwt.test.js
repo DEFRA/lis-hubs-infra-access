@@ -1,5 +1,9 @@
 import { SignJWT } from 'jose'
-import { expect, test } from 'vitest'
+import { beforeEach, expect, test, vi } from 'vitest'
+
+const { logger } = vi.hoisted(() => ({ logger: { warn: vi.fn() } }))
+
+vi.mock('@defra/lis-hubs-infra-core', () => ({ logger }))
 
 import {
   getAuthorizationBearerToken,
@@ -7,6 +11,10 @@ import {
   issueHubJwt,
   verifyHubJwt
 } from '../../../src/authentication/tokens/jwt.js'
+
+beforeEach(() => {
+  logger.warn.mockClear()
+})
 
 const jwtConfig = {
   secret: 'test-hub-secret-please-change-1234567890',
@@ -95,6 +103,59 @@ test('returns null for missing and invalid hub session cookies', async () => {
       options
     )
   ).toBeNull()
+})
+
+test('expired hub session cookies return null without logging', async () => {
+  const token = await issueHubJwt(
+    { sub: 'user-1' },
+    { ...jwtConfig, ttlSeconds: -60 }
+  )
+
+  const payload = await getHubJwtPayloadFromRequest(
+    { state: { 'hub-jwt': token } },
+    { cookieName: 'hub-jwt', ...jwtConfig }
+  )
+
+  expect(payload).toBeNull()
+  expect(logger.warn).not.toHaveBeenCalled()
+})
+
+test('invalid signature logs a warning without the token', async () => {
+  const token = await issueHubJwt({ sub: 'user-1' }, jwtConfig)
+  const tampered = `${token.slice(0, -4)}AAAA`
+
+  const payload = await getHubJwtPayloadFromRequest(
+    { state: { 'hub-jwt': tampered } },
+    { cookieName: 'hub-jwt', ...jwtConfig }
+  )
+
+  expect(payload).toBeNull()
+  expect(logger.warn).toHaveBeenCalledTimes(1)
+  const [logged, message] = logger.warn.mock.calls[0]
+  expect(message).toBe('Hub JWT verification failed')
+  expect(logged).toHaveProperty('code')
+  expect(logged).not.toHaveProperty('payload')
+  expect(logged).not.toHaveProperty('err')
+  const serialised = JSON.stringify(logger.warn.mock.calls)
+  expect(serialised).not.toContain(tampered)
+  expect(serialised).not.toContain('user-1')
+})
+
+test('authorization version mismatch returns null without logging', async () => {
+  const token = await new SignJWT({ authzVersion: -1 })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuer(jwtConfig.issuer)
+    .setAudience(jwtConfig.audience)
+    .setExpirationTime('1h')
+    .sign(new TextEncoder().encode(jwtConfig.secret))
+
+  const payload = await getHubJwtPayloadFromRequest(
+    { state: { 'hub-jwt': token } },
+    { cookieName: 'hub-jwt', ...jwtConfig }
+  )
+
+  expect(payload).toBeNull()
+  expect(logger.warn).not.toHaveBeenCalled()
 })
 
 test('getAuthorizationBearerToken returns the token from a bearer header', () => {
