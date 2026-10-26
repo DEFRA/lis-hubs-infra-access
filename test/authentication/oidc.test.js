@@ -88,6 +88,27 @@ test('rejects failed discovery responses', async () => {
   )
 })
 
+test('includes only the OAuth error code from failed responses', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => ({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        error: 'invalid_grant',
+        error_description: 'some sensitive text'
+      })
+    }))
+  )
+
+  await assert.rejects(
+    createClient().getOidcMetadata('entra'),
+    (error) =>
+      error.message.includes('400 invalid_grant') &&
+      !error.message.includes('some sensitive text')
+  )
+})
+
 test('requires a provider id and discovery URL', async () => {
   await assert.rejects(
     createClient({ getPrimaryProviderId: () => null }).getOidcMetadata(),
@@ -481,4 +502,21 @@ test('returns straight to the hub path when the provider has no end-session endp
 
   // Assert
   assert.equal(logoutUrl, 'https://hub.example/auth/not-authorised')
+})
+
+test('ignores an OAuth error value that is not a short code', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => ({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: '<html>huge</html>' })
+    }))
+  )
+
+  await assert.rejects(
+    createClient().getOidcMetadata('entra'),
+    (error) =>
+      error.message === `Failed to fetch ${providerConfig.discoveryUrl}: 400`
+  )
 })

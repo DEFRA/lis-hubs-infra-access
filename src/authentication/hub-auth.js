@@ -22,6 +22,51 @@ const Forbidden = 403
 
 const DEFAULT_NOT_AUTHORISED_PATH = '/auth/not-authorised'
 
+// RFC 6749 section 4.1.2.1 and OIDC Core section 3.1.2.6
+const KNOWN_IDP_ERRORS = new Set([
+  'invalid_request',
+  'unauthorized_client',
+  'access_denied',
+  'unsupported_response_type',
+  'invalid_scope',
+  'server_error',
+  'temporarily_unavailable',
+  'interaction_required',
+  'login_required',
+  'account_selection_required',
+  'consent_required',
+  'invalid_request_uri',
+  'invalid_request_object',
+  'request_not_supported',
+  'request_uri_not_supported',
+  'registration_not_supported'
+])
+const PROVIDER_CODE_PATTERN = /\b(AAD(?:B2C|STS)\d+)\b/
+
+function toKnownIdpError(value) {
+  return typeof value === 'string' && KNOWN_IDP_ERRORS.has(value)
+    ? value
+    : 'unknown'
+}
+
+function toProviderCode(description) {
+  if (typeof description !== 'string') {
+    return undefined
+  }
+
+  const [, providerCode] = PROVIDER_CODE_PATTERN.exec(description) ?? []
+
+  return providerCode
+}
+
+function createIdpError(query) {
+  const idpError = toKnownIdpError(query.error)
+  const providerCode = toProviderCode(query.error_description)
+  const suffix = providerCode ? ` (${providerCode})` : ''
+
+  return Boom.badRequest(`Identity provider returned ${idpError}${suffix}`)
+}
+
 /**
  * Builds the shared response for a hub-level refusal. Authentication and
  * authorisation are kept apart: the user stays signed in to the hub, but no
@@ -136,7 +181,7 @@ function createCallbackController({
     },
     async handler(request, h) {
       if (request.query?.error) {
-        throw new Error(request.query?.error_description ?? request.query.error)
+        throw createIdpError(request.query)
       }
 
       const grant = await completeAuthorizationCodeGrant(request)

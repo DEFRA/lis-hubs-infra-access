@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
 const { logger } = vi.hoisted(() => ({
-  logger: { error: vi.fn() }
+  logger: { error: vi.fn(), warn: vi.fn() }
 }))
 
 vi.mock('@defra/lis-hubs-infra-core', () => ({ logger }))
@@ -351,22 +351,63 @@ describe('createHubAuth()', () => {
     expect(h.result.state).not.toHaveBeenCalled()
   })
 
-  test('callback surfaces errors returned by the identity provider', async () => {
-    // Arrange
+  async function callbackError(query) {
     const { routes } = registerPlugin()
     const request = createRequest()
-    request.query = { error: 'access_denied', error_description: 'Denied' }
+    request.query = query
 
-    // Act
-    let error
     try {
       await routes[1].handler(request, createToolkit())
     } catch (e) {
-      error = e
+      return e
     }
+  }
+
+  test('callback rejects a known identity provider error code', async () => {
+    // Act
+    const error = await callbackError({ error: 'access_denied' })
 
     // Assert
-    expect(error.message).toMatch(/Denied/)
+    expect(error.output.statusCode).toBe(400)
+    expect(error.message).toBe('Identity provider returned access_denied')
+    expect(logger.warn).not.toHaveBeenCalled()
+  })
+
+  test('callback reports an unknown identity provider error as unknown', async () => {
+    // Act
+    const error = await callbackError({
+      error: '<script>x',
+      error_description: 'Denied <script>craft</script>'
+    })
+
+    // Assert
+    expect(error.output.statusCode).toBe(400)
+    expect(error.message).toBe('Identity provider returned unknown')
+    expect(error.message).not.toContain('script')
+    expect(JSON.stringify(logger.warn.mock.calls)).not.toContain('script')
+  })
+
+  test('callback treats an array error value as unknown', async () => {
+    // Act
+    const error = await callbackError({ error: ['access_denied', 'a'] })
+
+    // Assert
+    expect(error.message).toBe('Identity provider returned unknown')
+  })
+
+  test('callback keeps only the provider code from error_description', async () => {
+    // Act
+    const error = await callbackError({
+      error: 'access_denied',
+      error_description: 'AADB2C90091: The user has cancelled'
+    })
+
+    // Assert
+    expect(error.message).toBe(
+      'Identity provider returned access_denied (AADB2C90091)'
+    )
+    expect(error.message).not.toContain('cancelled')
+    expect(logger.warn).not.toHaveBeenCalled()
   })
 
   test('logout clears auth state and removes the JWT cookie', async () => {

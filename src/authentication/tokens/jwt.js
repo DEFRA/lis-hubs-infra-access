@@ -2,11 +2,18 @@
 import { TextEncoder } from 'node:util'
 
 import { SignJWT, jwtVerify } from 'jose'
+import { logger } from '@defra/lis-hubs-infra-core'
 
 import { AUTHORIZATION_VERSION } from '../../authorization/constants.js'
 
 const encoder = new TextEncoder()
 const MILLISECONDS_PER_SECOND = 1000
+const JWT_EXPIRED_CODE = 'ERR_JWT_EXPIRED'
+const AUTHZ_VERSION_UNSUPPORTED_CODE = 'ERR_AUTHZ_VERSION_UNSUPPORTED'
+const ROUTINE_FAILURE_CODES = new Set([
+  JWT_EXPIRED_CODE,
+  AUTHZ_VERSION_UNSUPPORTED_CODE
+])
 
 function getHubJwtSecret(secret) {
   return encoder.encode(secret)
@@ -72,7 +79,9 @@ export async function verifyHubJwt(token, { secret, issuer, audience }) {
   })
 
   if (payload.authzVersion !== AUTHORIZATION_VERSION) {
-    throw new Error('Unsupported authorization model version')
+    const error = new Error('Unsupported authorization model version')
+    error.code = AUTHZ_VERSION_UNSUPPORTED_CODE
+    throw error
   }
 
   return payload
@@ -111,7 +120,19 @@ export async function getHubJwtPayloadFromRequest(
 
   try {
     return await verifyHubJwt(token, { secret, issuer, audience })
-  } catch {
+  } catch (error) {
+    if (!ROUTINE_FAILURE_CODES.has(error?.code)) {
+      // error.payload carries the decoded token, so the error is never logged whole
+      logger.warn(
+        {
+          code: error?.code,
+          claim: error?.claim,
+          reason: error?.reason,
+          name: error?.name
+        },
+        'Hub JWT verification failed'
+      )
+    }
     return null
   }
 }
