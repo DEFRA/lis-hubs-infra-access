@@ -32,8 +32,16 @@ async function readOAuthErrorCode(response) {
   }
 }
 
+// Discovery and token exchange go to the identity provider via the outbound
+// proxy; without a timeout a hung connection holds the sign-in request open
+// for as long as the socket lives.
+const OIDC_FETCH_TIMEOUT_MS = 10000
+
 async function fetchJson(url, options = {}) {
-  const response = await fetch(url, options)
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(OIDC_FETCH_TIMEOUT_MS),
+    ...options
+  })
 
   if (!response.ok) {
     const oauthError = await readOAuthErrorCode(response)
@@ -76,9 +84,15 @@ function createMetadataLoader(resolveProviderConfig) {
     const providerConfig = resolveProviderConfig(providerId)
 
     if (!providerMetadata.has(providerConfig.providerId)) {
+      // Cache the in-flight request so concurrent sign-ins share one fetch,
+      // but drop it if it fails: a cached rejection would turn one timeout
+      // or proxy blip into a 503 on every sign-in until the instance restarts.
       providerMetadata.set(
         providerConfig.providerId,
-        fetchJson(providerConfig.discoveryUrl)
+        fetchJson(providerConfig.discoveryUrl).catch((error) => {
+          providerMetadata.delete(providerConfig.providerId)
+          throw error
+        })
       )
     }
 
