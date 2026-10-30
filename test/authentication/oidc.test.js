@@ -66,6 +66,30 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
+test('fetches discovery metadata with a timeout', async () => {
+  const fetch = mockDiscovery()
+  const client = createClient()
+
+  await client.getOidcMetadata('entra')
+
+  const [, options] = fetch.mock.calls[0]
+  assert.ok(options.signal instanceof AbortSignal)
+})
+
+test('does not cache a failed discovery fetch', async () => {
+  const fetch = vi
+    .fn()
+    .mockRejectedValueOnce(new Error('fetch failed'))
+    .mockResolvedValueOnce({ ok: true, json: async () => metadata })
+  vi.stubGlobal('fetch', fetch)
+  const client = createClient()
+
+  await assert.rejects(client.getOidcMetadata('entra'), /fetch failed/)
+
+  assert.equal(await client.getOidcMetadata('entra'), metadata)
+  assert.equal(fetch.mock.calls.length, 2)
+})
+
 test('fetches and caches provider discovery metadata', async () => {
   const fetch = mockDiscovery()
   const client = createClient()
