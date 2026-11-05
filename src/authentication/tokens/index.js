@@ -1,5 +1,4 @@
 export {
-  getHubJwtCookieOptions,
   issueHubJwt,
   verifyHubJwt,
   getHubJwtPayloadFromRequest

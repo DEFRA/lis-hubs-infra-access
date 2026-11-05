@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 
 const authFlowKey = 'hub-auth-flow'
 const authSessionKey = 'hub-auth-session'
+const hubJwtKey = 'hub-jwt'
 const keyLength = 32
 
 /**
@@ -68,6 +69,32 @@ export function getHubAuthSession(request) {
  */
 export function setHubAuthSession(request, authSession) {
   request?.yar?.set?.(authSessionKey, authSession)
+}
+
+/**
+ * Retrieves the hub JWT minted for the signed-in user from the request session.
+ * @param {object} request - The Hapi request object with yar session support.
+ * @returns {string|null} The stored hub JWT or null if not found.
+ */
+export function getHubJwt(request) {
+  return request?.yar?.get ? (request.yar.get(hubJwtKey) ?? null) : null
+}
+
+/**
+ * Stores the hub JWT in the request session.
+ * @param {object} request - The Hapi request object with yar session support.
+ * @param {string} jwt - The signed hub JWT to store.
+ */
+export function setHubJwt(request, jwt) {
+  request?.yar?.set?.(hubJwtKey, jwt)
+}
+
+/**
+ * Clears the hub JWT from the request session.
+ * @param {object} request - The Hapi request object with yar session support.
+ */
+export function clearHubJwt(request) {
+  request?.yar?.clear?.(hubJwtKey)
 }
 
 /**

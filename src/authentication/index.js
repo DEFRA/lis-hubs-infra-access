@@ -1,12 +1,5 @@
-export {
-  createHubAuth,
-  createHubCookieOptions,
-  HUB_AUTH_STRATEGY
-} from './hub-auth.js'
+export { createHubAuth, HUB_AUTH_STRATEGY } from './hub-auth.js'
+export { getHubJwt } from './session.js'
 export { createOidcClient } from './oidc.js'
 export { createSpokeAuth, SPOKE_AUTH_STRATEGY } from './spoke-auth.js'
-export {
-  getHubJwtCookieOptions,
-  issueHubJwt,
-  verifyHubJwt
-} from './tokens/index.js'
+export { issueHubJwt, verifyHubJwt } from './tokens/index.js'

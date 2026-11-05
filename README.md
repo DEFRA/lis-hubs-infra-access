@@ -45,20 +45,17 @@ context and `demandPermission` read it from there. Routes opt out with
 
 Entry points:
 
-| Import                                        | Exports                                                                                                                                                                               |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@defra/lis-hubs-infra-access/authentication` | `createHubAuth`, `HUB_AUTH_STRATEGY`, `createSpokeAuth`, `SPOKE_AUTH_STRATEGY`, `createOidcClient`, `createHubCookieOptions`, `getHubJwtCookieOptions`, `issueHubJwt`, `verifyHubJwt` |
-| `@defra/lis-hubs-infra-access/authorization`  | `PERMISSIONS`, `hasPermission`, `demandPermission`, `resolveAuthorization`, `GLOBAL_CPH_SCOPE`, `AUTHORIZATION_VERSION`                                                               |
-| `@defra/lis-hubs-infra-access`                | both of the above as `authentication` and `authorization` namespaces                                                                                                                  |
+| Import                                        | Exports                                                                                                                                        |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@defra/lis-hubs-infra-access/authentication` | `createHubAuth`, `HUB_AUTH_STRATEGY`, `createSpokeAuth`, `SPOKE_AUTH_STRATEGY`, `createOidcClient`, `getHubJwt`, `issueHubJwt`, `verifyHubJwt` |
+| `@defra/lis-hubs-infra-access/authorization`  | `PERMISSIONS`, `hasPermission`, `demandPermission`, `resolveAuthorization`, `GLOBAL_CPH_SCOPE`, `AUTHORIZATION_VERSION`                        |
+| `@defra/lis-hubs-infra-access`                | both of the above as `authentication` and `authorization` namespaces                                                                           |
 
 Prefer the subpath imports: they give plain named imports and simple mocks
 (`vi.mock('@defra/lis-hubs-infra-access/authorization')`).
 
 ```js
-import {
-  createSpokeAuth,
-  getHubJwtCookieOptions
-} from '@defra/lis-hubs-infra-access/authentication'
+import { createSpokeAuth } from '@defra/lis-hubs-infra-access/authentication'
 import {
   hasPermission,
   PERMISSIONS
@@ -72,8 +69,6 @@ await server.register(
   createSpokeAuth({
     spokeId: 'cattle-home',
     hubOrigins,
-    cookieName,
-    cookieOptions,
     port,
     basePath,
     secret,
@@ -89,7 +84,8 @@ Registers the `lis-spoke` scheme as the default strategy. A request:
 1. must carry a valid service token in `Authorization: Bearer <token>`, else
    `401 { message: 'Service authentication required' }` in every route mode,
    `public` spokes included;
-2. must carry a valid hub JWT cookie, unless the spoke is `public`. Without one,
+2. must carry a valid hub JWT in the `x-lis-jwt-assertion` header
+   (`JWT_ASSERTION_HEADER` from `@defra/lis-hubs-infra-core`), unless the spoke is `public`. Without one,
    a required route redirects to `<hubOrigin>/auth/login?returnUrl=…`, and a
    `try` route continues unauthenticated;
 3. then gets `credentials: { user, caller }`, where `caller` is the hub's
@@ -98,6 +94,11 @@ Registers the `lis-spoke` scheme as the default strategy. A request:
 Authenticated requests are then checked against `moduleAccess` (non-public
 spokes) and the optional `authorize` predicate; failing either gives a 403.
 The factory throws for an unknown `spokeId` or an invalid `moduleAccess`.
+
+The hub proxy sets the `x-lis-jwt-assertion` header on proxied requests; spokes
+never see the hub JWT as a cookie, and a JWT sent as a cookie is ignored.
+The header is only trusted because the service token check runs first, so
+`createSpokeAuth` takes no cookie options.
 
 The service token is an AWS STS web identity token, attached by the hub's
 proxy in `@defra/lis-hubs-infra-core`. It must:
@@ -119,8 +120,6 @@ called; the CDP platform provides them. The JWKS is fetched with the built-in
 await server.register(
   createHubAuth({
     hubId: 'front-office',
-    getHubJwtCookieName,
-    getCookieOptions,
     getHubJwtConfig,
     resolveAuthSession,
     buildAuthorizationUrl,
@@ -133,7 +132,7 @@ await server.register(
 )
 ```
 
-Registers the hub JWT cookie state, the login, `/sso`, `/auth/logout` and
+Registers the login, `/sso`, `/auth/logout` and
 `/signout` routes (all `auth: false`) and the not-authorised route (`auth: try`), plus the `lis-hub-session`
 scheme as the default strategy, backed by the yar hub session. A signed-out
 user on a required route is redirected to the first login route with
@@ -144,13 +143,19 @@ sees. `hubId` is required and must be a registry hub id. The optional `authorize
 predicate runs for authenticated requests only; `false` refuses the request
 (see below).
 
+The hub JWT minted at sign-in is kept in the hub's yar session, not in a
+browser cookie, so the browser holds only the session cookie. `getHubJwt(request)`
+returns it (or `null`), and the hub's proxy injects it on proxied spoke
+requests in the `x-lis-jwt-assertion` header (`JWT_ASSERTION_HEADER` from `@defra/lis-hubs-infra-core`).
+Signing out resets the session, which drops the JWT with it.
+
 A hub-level refusal keeps authentication and authorisation apart: the user
 stays signed in to the hub but is not authorised to use it. `resolveAuthSession`
 refuses a login (e.g. a user not on an allow-list) by returning
 `{ denied: true }`, and `authorize` refuses a signed-in user by returning
 `false`. `authorize` runs on every authenticated request and also in the login
-and `/sso` routes before a JWT is minted. Either way no JWT cookie is issued
-(any existing one is unset), so no spoke is reachable, and the user is
+and `/sso` routes before a JWT is minted. Either way no JWT is stored in the
+session (any existing one is cleared), so no spoke is reachable, and the user is
 redirected to `notAuthorisedPath`. A refused
 login is stored as a session flagged `refused`, and every later authenticated
 request, including the login route, is sent to `notAuthorisedPath` without
