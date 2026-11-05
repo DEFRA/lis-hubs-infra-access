@@ -3,6 +3,9 @@ import crypto from 'node:crypto'
 const authFlowKey = 'hub-auth-flow'
 const authSessionKey = 'hub-auth-session'
 const hubJwtKey = 'hub-jwt'
+// Must match CSRF_SESSION_KEY in @defra/lis-infra-ui-services/csrf, which
+// depends on this package, so this one cannot import it.
+const csrfTokenKey = 'lis-csrf-token'
 const keyLength = 32
 
 /**
@@ -103,4 +106,13 @@ export function clearHubJwt(request) {
  */
 export function clearHubAuthSession(request) {
   request?.yar?.reset?.()
+}
+
+/**
+ * Drops the session's CSRF token, so the CSRF plugin issues a new one on the
+ * next signed-in request and a token from before sign-in is never reused.
+ * @param {object} request - The Hapi request object with yar session support.
+ */
+export function clearCsrfToken(request) {
+  request?.yar?.clear?.(csrfTokenKey)
 }

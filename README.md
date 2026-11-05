@@ -125,6 +125,7 @@ await server.register(
     buildAuthorizationUrl,
     completeAuthorizationCodeGrant,
     buildLogoutUrl,
+    getLogoutOrigins, // from createOidcClient, like buildLogoutUrl
     loginRoutes,
     notAuthorisedPath: '/auth/access-denied', // optional, defaults to '/auth/not-authorised'
     authorize: async (user, request) => true // optional
@@ -132,8 +133,8 @@ await server.register(
 )
 ```
 
-Registers the login, `/sso`, `/auth/logout` and
-`/signout` routes (all `auth: false`) and the not-authorised route (`auth: try`), plus the `lis-hub-session`
+Registers the login and `/sso` routes, `POST /signout`, `GET /signout` and
+`GET /auth/logout` (all `auth: false`) and the not-authorised route (`auth: try`), plus the `lis-hub-session`
 scheme as the default strategy, backed by the yar hub session. A signed-out
 user on a required route is redirected to the first login route with
 `?returnUrl=<path+search>`; a `try` route continues unauthenticated.
@@ -149,6 +150,40 @@ returns it (or `null`), and the hub's proxy injects it on proxied spoke
 requests in the `x-lis-jwt-assertion` header (`JWT_ASSERTION_HEADER` from `@defra/lis-hubs-infra-core`).
 Signing out resets the session, which drops the JWT with it.
 
+The header Sign out (and the not-authorised page's) is a link to `GET /signout`,
+which never signs out: for a session with a CSRF token (only a signed-in one has
+one) it renders the `auth/sign-out` view from `@defra/lis-infra-ui-services`,
+asking the user to confirm with a `Sign out` button posting the token, or
+`Cancel`; anyone else is redirected to `/`. The old `GET /auth/logout` redirects
+to `/signout`.
+
+`POST /signout` builds the identity provider's end-session URL, resets the
+session (even if building the URL fails, when the error propagates) and
+redirects there. The hub must register `csrfPlugin` from
+`@defra/lis-infra-ui-services/csrf` with `{ tokenSource: 'session' }`, which
+requires the post to be same-origin and to carry the session's token in its
+`_csrf` field. The plugin is declared as a dependency, so a hub that has not
+registered it fails to start. A post that fails either check (an expired session
+has no token left, or the request is forged) signs nothing out and redirects to
+`/`, through the plugin's route `failAction`, rather than answering 403.
+
+Browsers hold every redirect after a form post to the posting page's CSP
+`form-action`, which is `'self'` on every hub page. So the confirmation page
+alone allows the origins the sign-out passes through: `getLogoutOrigins(request)`
+gives the end-session endpoint's origin, the issuer's (an identity provider
+on a custom domain redirects to its issuer host to finish) and the post-logout
+redirect URI's (from the configured hub origin, which may not be the one the
+user is on), from the same
+discovery metadata and provider as `buildLogoutUrl`. After the hub's Blankie
+plugin (`blankie`) has set the header, an `onPreResponse` hook appends them to
+the `form-action` directive of that response, leaving the rest of the policy
+as it is. Blankie's own route options cannot do it: they replace the whole
+policy and are fixed at route registration. If discovery fails, the
+confirmation page fails as sign-out would.
+
+A successful sign-in at `/sso` clears the session's CSRF token, so a new one is
+issued.
+
 A hub-level refusal keeps authentication and authorisation apart: the user
 stays signed in to the hub but is not authorised to use it. `resolveAuthSession`
 refuses a login (e.g. a user not on an allow-list) by returning
@@ -160,7 +195,7 @@ redirected to `notAuthorisedPath`. A refused
 login is stored as a session flagged `refused`, and every later authenticated
 request, including the login route, is sent to `notAuthorisedPath` without
 re-running the hub's checks, until the user signs out through the normal
-`/signout` flow. The identity provider is not involved in the refusal, so no
+`POST /signout` flow. The identity provider is not involved in the refusal, so no
 post-logout redirect URI is needed for it. `notAuthorisedPath` must be a hub
 path starting with `/`, and the old `accessDeniedPath` option is rejected.
 

@@ -45,6 +45,7 @@ async function createServer(overrides = {}) {
       buildAuthorizationUrl: async () => 'https://identity.example/authorize',
       completeAuthorizationCodeGrant: async () => ({}),
       buildLogoutUrl: async () => 'https://identity.example/logout',
+      getLogoutOrigins: async () => ['https://identity.example'],
       loginRoutes: [{ path: '/auth/login', providerId: 'entra' }],
       ...overrides
     })
@@ -411,12 +412,15 @@ describe('lis-hub-session scheme', () => {
 
     // Act
     const tryResponse = await server.inject({ url: '/' })
-    const signoutResponse = await server.inject({ url: '/signout' })
+    const signoutResponse = await server.inject({
+      url: '/auth/logout',
+      headers: sessionHeaders()
+    })
 
     // Assert
     expect(tryResponse.statusCode).toBe(200)
     expect(signoutResponse.statusCode).toBe(302)
-    expect(signoutResponse.headers.location).toBe('/auth/logout')
+    expect(signoutResponse.headers.location).toBe('/signout')
     expect(authorize).not.toHaveBeenCalled()
   })
 
@@ -428,22 +432,27 @@ describe('lis-hub-session scheme', () => {
     const routes = server
       .table()
       .filter(({ path }) => !['/', '/page', '/optional'].includes(path))
-    const byPath = Object.fromEntries(
-      routes.map(({ path, settings }) => [path, settings.auth])
+    const byRoute = Object.fromEntries(
+      routes.map(({ method, path, settings }) => [
+        `${method} ${path}`,
+        settings.auth
+      ])
     )
 
     // Assert
-    expect(Object.keys(byPath).sort()).toEqual([
-      '/auth/login',
-      '/auth/logout',
-      '/auth/not-authorised',
-      '/signout',
-      '/sso'
+    expect(Object.keys(byRoute).sort()).toEqual([
+      'get /auth/login',
+      'get /auth/logout',
+      'get /auth/not-authorised',
+      'get /signout',
+      'get /sso',
+      'post /signout'
     ])
-    expect(byPath['/auth/login']).toBe(false)
-    expect(byPath['/auth/logout']).toBe(false)
-    expect(byPath['/signout']).toBe(false)
-    expect(byPath['/sso']).toBe(false)
-    expect(byPath['/auth/not-authorised']).toMatchObject({ mode: 'try' })
+    expect(byRoute['get /auth/login']).toBe(false)
+    expect(byRoute['get /auth/logout']).toBe(false)
+    expect(byRoute['get /signout']).toBe(false)
+    expect(byRoute['post /signout']).toBe(false)
+    expect(byRoute['get /sso']).toBe(false)
+    expect(byRoute['get /auth/not-authorised']).toMatchObject({ mode: 'try' })
   })
 })

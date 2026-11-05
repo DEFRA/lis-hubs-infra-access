@@ -3,12 +3,18 @@ import { logger } from '@defra/lis-hubs-infra-core'
 import { HUBS } from '@defra/lis-hubs-infra-registry'
 
 import {
-  clearHubAuthSession,
+  clearCsrfToken,
   clearHubJwt,
   getHubAuthSession,
   setHubAuthSession,
   setHubJwt
 } from './session.js'
+import {
+  CSRF_PLUGIN_NAME,
+  SIGN_OUT_PATH,
+  allowSignOutFormAction,
+  createSignOutRoutes
+} from './sign-out.js'
 import { getReturnUrlFromRequest, issueHubJwt } from './tokens/index.js'
 import { getAuthorizedSpecies } from '../authorization/modules/species.js'
 import { hydrateAuthorization } from '../authorization/permissions/hydrate.js'
@@ -181,6 +187,10 @@ function createCallbackController({
       }
 
       const { user, authSession, accessToken, returnUrl } = grant
+
+      // A new sign-in gets a new CSRF token, whatever the session held.
+      clearCsrfToken(request)
+
       const authorization = await resolveAuthSession({
         user,
         authSession,
@@ -218,27 +228,6 @@ function createCallbackController({
   }
 }
 
-function createLogoutController({ buildLogoutUrl }) {
-  return {
-    options: {
-      auth: false
-    },
-    async handler(request, h) {
-      // Build the logout URL while the session is still alive (it reads the
-      // id token for id_token_hint), but invalidate the session in `finally`
-      // so a failure building the URL cannot leave the session replayable.
-      // Resetting the session also drops the hub JWT it holds.
-      try {
-        const logoutUrl = await buildLogoutUrl(request)
-
-        return h.redirect(logoutUrl)
-      } finally {
-        clearHubAuthSession(request)
-      }
-    }
-  }
-}
-
 function createNotAuthorisedRoute({ path, loginPath }) {
   return {
     method: 'GET',
@@ -250,7 +239,7 @@ function createNotAuthorisedRoute({ path, loginPath }) {
       // The view comes from @defra/lis-infra-ui-services, which every hub
       // registers. A signed-in visitor is offered Sign out, anyone else Sign in.
       const action = request.auth.isAuthenticated
-        ? { signOutHref: '/signout' }
+        ? { signOutHref: SIGN_OUT_PATH }
         : { signInHref: loginPath }
 
       return h
@@ -264,9 +253,11 @@ function createNotAuthorisedRoute({ path, loginPath }) {
 }
 
 /**
- * Builds the login, `/sso`, `/auth/logout` and
- * `/signout` routes (all `auth: false`), plus the shared not-authorised route
- * when the hub uses the default not-authorised path.
+ * Builds the login and `/sso` routes, `POST /signout`, its `GET /signout`
+ * confirmation and `GET /auth/logout`, which redirects to it (all
+ * `auth: false`), plus the
+ * shared not-authorised route when the hub uses the default not-authorised
+ * path.
  *
  * @param {object} options - `createHubAuth` options, minus `pluginName` and `authorize`.
  * @param {Function} options.refuseAccess - Shared hub-level refusal response.
@@ -280,6 +271,7 @@ function createHubAuthRegistration(options) {
     buildAuthorizationUrl,
     completeAuthorizationCodeGrant,
     buildLogoutUrl,
+    getLogoutOrigins,
     loginRoutes,
     notAuthorisedPath,
     registerNotAuthorisedRoute,
@@ -295,7 +287,6 @@ function createHubAuthRegistration(options) {
     isAuthorized,
     loginPath
   })
-  const logoutController = createLogoutController({ buildLogoutUrl })
   const routes = [
     ...loginRoutes.map(({ path, providerId }) => ({
       method: 'GET',
@@ -314,23 +305,7 @@ function createHubAuthRegistration(options) {
       path: '/sso',
       ...callbackController
     },
-    {
-      method: 'GET',
-      path: '/auth/logout',
-      ...logoutController
-    },
-    {
-      // The shared nunjucks layout's header nav links here (see
-      // createNunjucksContextBuilder's logoutUrl default).
-      method: 'GET',
-      path: '/signout',
-      options: {
-        auth: false
-      },
-      handler(_request, h) {
-        return h.redirect('/auth/logout')
-      }
-    },
+    ...createSignOutRoutes({ buildLogoutUrl, getLogoutOrigins }),
     ...(registerNotAuthorisedRoute
       ? [createNotAuthorisedRoute({ path: notAuthorisedPath, loginPath })]
       : [])
@@ -375,8 +350,10 @@ function createHubSessionScheme({ loginPath, caller }) {
 /**
  * Creates a Hapi plugin for hub authentication built on a Hapi auth scheme.
  *
- * Registers the login, `/sso`, `/auth/logout` and
- * `/signout` routes (all `auth: false`), the shared not-authorised route
+ * Registers the login and `/sso` routes, `POST /signout`, which signs the user
+ * out, `GET /signout`, which asks a signed-in user to confirm and sends anyone
+ * else home, and `GET /auth/logout`, which redirects to it (all
+ * `auth: false`), the shared not-authorised route
  * (`auth: { mode: 'try' }`, unless the hub sets its own `notAuthorisedPath`), and the
  * `lis-hub-session` scheme and
  * strategy, made the server's default. Signed-out requests to `required`
@@ -390,6 +367,11 @@ function createHubSessionScheme({ loginPath, caller }) {
  * `getHubJwt`), so the browser only carries the session cookie; the hub's
  * proxy sends it to spokes in the `x-lis-jwt-assertion` header.
  *
+ * `POST /signout` relies on the hub registering `csrfPlugin` from
+ * `@defra/lis-infra-ui-services/csrf` with `{ tokenSource: 'session' }`,
+ * declared as a plugin dependency, so the server fails to start without it. A
+ * successful sign-in clears the session's CSRF token, so a new one is issued.
+ *
  * @param {object} options - Plugin configuration options.
  * @param {string} [options.pluginName='auth'] - Name of the plugin.
  * @param {string} options.hubId - Registry id of this hub: 'front-office' or 'back-office'.
@@ -398,6 +380,7 @@ function createHubSessionScheme({ loginPath, caller }) {
  * @param {Function} options.buildAuthorizationUrl - Function to build OIDC authorization URL.
  * @param {Function} options.completeAuthorizationCodeGrant - Function to complete OIDC authorization code flow.
  * @param {Function} options.buildLogoutUrl - Function to build logout URL.
+ * @param {Function} options.getLogoutOrigins - The OIDC client's, giving the origins a sign-out redirects through, which the sign-out page's CSP form-action allows.
  * @param {Array<{path: string, providerId: string|Function}>} options.loginRoutes - Login route configurations; the first is where signed-out users are sent.
  * @param {string} [options.notAuthorisedPath='/auth/not-authorised'] - Where a user lands after a hub-level refusal (`resolveAuthSession` returning `{ denied: true }`, or `authorize` returning `false`). They stay signed in to the hub, with no spoke JWT, and every other authenticated request is redirected here until they sign out. The default path is registered by this plugin with `auth: try` and renders the `error/not-authorised` view with a 403, offering Sign out to a signed-in visitor and Sign in (to the first login route) to anyone else. A hub that sets its own path registers that route itself and should do the same.
  * @param {(user: object, request: object) => boolean | Promise<boolean>} [options.authorize] - Optional hub-wide rule for authenticated requests; `false` redirects the user to `notAuthorisedPath` without signing them out.
@@ -417,6 +400,12 @@ export function createHubAuth({
   if ('accessDeniedPath' in options) {
     throw new TypeError(
       'createHubAuth() accessDeniedPath was renamed to notAuthorisedPath'
+    )
+  }
+
+  if (typeof options.getLogoutOrigins !== 'function') {
+    throw new TypeError(
+      "createHubAuth() requires getLogoutOrigins, the OIDC client's, for the sign-out page's CSP"
     )
   }
 
@@ -460,7 +449,12 @@ export function createHubAuth({
         server.auth.strategy(HUB_AUTH_STRATEGY, HUB_AUTH_STRATEGY)
         server.auth.default(HUB_AUTH_STRATEGY)
 
+        // POST /signout is protected only by the CSRF plugin, so a hub that
+        // has not registered it fails at start rather than exposing it.
+        server.dependency(CSRF_PLUGIN_NAME)
+
         register(server)
+        allowSignOutFormAction(server)
 
         server.ext('onPostAuth', async (request, h) => {
           if (!request.auth.isAuthenticated || request.path === landingPath) {

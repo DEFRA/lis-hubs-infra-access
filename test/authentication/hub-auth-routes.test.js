@@ -60,6 +60,7 @@ function registerPlugin(overrides = {}) {
     buildAuthorizationUrl: async () => 'https://identity.example/authorize',
     completeAuthorizationCodeGrant: async () => ({}),
     buildLogoutUrl: async () => 'https://identity.example/logout',
+    getLogoutOrigins: async () => ['https://identity.example'],
     loginRoutes: [{ path: '/auth/login', providerId: 'entra' }],
     ...overrides
   })
@@ -67,6 +68,7 @@ function registerPlugin(overrides = {}) {
   plugin.plugin.register({
     auth: { scheme: vi.fn(), strategy: vi.fn(), default: vi.fn() },
     state,
+    dependency: vi.fn(),
     ext: vi.fn(),
     route(registeredRoutes) {
       routes = registeredRoutes
@@ -85,12 +87,13 @@ describe('createHubAuth()', () => {
 
     // Assert
     expect(plugin.plugin.name).toBe('hub-auth')
-    expect(routes.map(({ path }) => path)).toEqual([
-      '/auth/login',
-      '/sso',
-      '/auth/logout',
-      '/signout',
-      '/auth/not-authorised'
+    expect(routes.map(({ method, path }) => `${method} ${path}`)).toEqual([
+      'GET /auth/login',
+      'GET /sso',
+      'POST /signout',
+      'GET /signout',
+      'GET /auth/logout',
+      'GET /auth/not-authorised'
     ])
     expect(state).not.toHaveBeenCalled()
   })
@@ -159,6 +162,7 @@ describe('createHubAuth()', () => {
     // Assert
     expect(h.redirect.mock.calls[0][0]).toBe('/cattle')
     expect(h.result.state).not.toHaveBeenCalled()
+    expect(request.yar.get('lis-csrf-token')).toBeUndefined()
     const payload = await verifyHubJwt(request.yar.get('hub-jwt'), jwtConfig)
     expect(payload.sub).toBe('user-1')
   })
@@ -236,7 +240,10 @@ describe('createHubAuth()', () => {
       resolveAuthSession
     })
     const request = createRequest(
-      new Map([['hub-auth-flow', { state: 'state-1' }]])
+      new Map([
+        ['hub-auth-flow', { state: 'state-1' }],
+        ['lis-csrf-token', 'token-from-before-sign-in']
+      ])
     )
     request.query = { code: 'code-1', state: 'state-1' }
     const h = createToolkit()
@@ -420,13 +427,14 @@ describe('createHubAuth()', () => {
     expect(logger.warn).not.toHaveBeenCalled()
   })
 
-  test('logout clears auth state including the session JWT', async () => {
+  test('logout clears auth state including the session JWT and CSRF token, then redirects to the identity provider', async () => {
     // Arrange
     const request = createRequest(
       new Map([
         ['hub-auth-session', { sub: 'user-1' }],
         ['hub-auth-flow', { state: 'state-id' }],
-        ['hub-jwt', 'previously-issued-jwt']
+        ['hub-jwt', 'previously-issued-jwt'],
+        ['lis-csrf-token', 'csrf-token']
       ])
     )
     const h = createToolkit()
@@ -438,6 +446,7 @@ describe('createHubAuth()', () => {
     // Assert
     expect(h.redirect.mock.calls[0][0]).toBe('https://identity.example/logout')
     expect(h.result.unstate).not.toHaveBeenCalled()
+    expect(request.yar.get('lis-csrf-token')).toBeUndefined()
     expect(request.yar.get('hub-jwt')).toBeUndefined()
     expect(request.yar.get('hub-auth-session')).toBeUndefined()
     expect(request.yar.get('hub-auth-flow')).toBeUndefined()
@@ -463,7 +472,8 @@ describe('createHubAuth()', () => {
     }
 
     // Assert
-    expect(error).toBeInstanceOf(Error)
+    expect(error.message).toBe('discovery failed')
+    expect(h.redirect).not.toHaveBeenCalled()
     expect(request.yar.get('hub-auth-session')).toBeUndefined()
   })
 
@@ -476,11 +486,11 @@ describe('createHubAuth()', () => {
     })
 
     // Act
-    routes[4].handler(request, h)
+    routes[5].handler(request, h)
 
     // Assert
-    expect(routes[4].path).toBe('/auth/not-authorised')
-    expect(routes[4].options.auth).toEqual({ mode: 'try' })
+    expect(routes[5].path).toBe('/auth/not-authorised')
+    expect(routes[5].options.auth).toEqual({ mode: 'try' })
     expect(h.view.mock.calls[0]).toEqual([
       'error/not-authorised',
       {
@@ -498,7 +508,7 @@ describe('createHubAuth()', () => {
     const { routes } = registerPlugin()
 
     // Act
-    routes[4].handler(request, h)
+    routes[5].handler(request, h)
 
     // Assert
     expect(h.view.mock.calls[0]).toEqual([
@@ -521,21 +531,9 @@ describe('createHubAuth()', () => {
     expect(routes.map(({ path }) => path)).toEqual([
       '/auth/login',
       '/sso',
-      '/auth/logout',
-      '/signout'
+      '/signout',
+      '/signout',
+      '/auth/logout'
     ])
-  })
-
-  test('signout redirects to the logout route', () => {
-    // Arrange
-    const request = createRequest()
-    const h = createToolkit()
-    const { routes } = registerPlugin()
-
-    // Act
-    routes[3].handler(request, h)
-
-    // Assert
-    expect(h.redirect.mock.calls[0][0]).toBe('/auth/logout')
   })
 })
