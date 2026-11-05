@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, test, vi } from 'vitest'
 
 import {
+  clearCsrfToken,
   clearHubAuthFlow,
   clearHubAuthSession,
   clearHubJwt,
@@ -163,5 +164,37 @@ describe('hub JWT session helpers', () => {
     // Assert
     assert.equal(error, undefined)
     assert.equal(jwt, null)
+  })
+})
+
+describe('clearCsrfToken()', () => {
+  test('clears only the CSRF token from the session', () => {
+    // Arrange
+    const values = new Map([
+      ['lis-csrf-token', 'csrf-token'],
+      ['hub-auth-session', { sub: 'user-1' }]
+    ])
+    const request = { yar: { clear: (key) => values.delete(key) } }
+
+    // Act
+    clearCsrfToken(request)
+
+    // Assert
+    assert.deepEqual([...values.keys()], ['hub-auth-session'])
+  })
+
+  test('tolerates a request without yar', () => {
+    // Arrange
+    let error
+
+    // Act
+    try {
+      clearCsrfToken({})
+    } catch (e) {
+      error = e
+    }
+
+    // Assert
+    assert.equal(error, undefined)
   })
 })

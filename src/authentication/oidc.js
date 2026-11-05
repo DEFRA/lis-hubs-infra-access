@@ -326,6 +326,17 @@ function createAuthorizationCodeCompleter({
   }
 }
 
+/**
+ * @param {() => string} getHubOrigin
+ * @param {string} [returnPath]
+ * @returns {string} the URI the identity provider returns to after sign-out
+ */
+function resolvePostLogoutRedirectUri(getHubOrigin, returnPath) {
+  return returnPath
+    ? new URL(returnPath, getHubOrigin()).toString()
+    : getHubOrigin()
+}
+
 function createLogoutUrlBuilder({
   getPrimaryProviderId,
   getOidcMetadata,
@@ -344,9 +355,10 @@ function createLogoutUrlBuilder({
   ) {
     const providerId = authSession?.authProvider ?? getPrimaryProviderId?.()
     const metadata = await getOidcMetadata(providerId)
-    const postLogoutRedirectUri = returnPath
-      ? new URL(returnPath, getHubOrigin()).toString()
-      : getHubOrigin()
+    const postLogoutRedirectUri = resolvePostLogoutRedirectUri(
+      getHubOrigin,
+      returnPath
+    )
 
     // A provider without an end-session endpoint cannot be signed out of, so
     // the user goes straight to where it would have returned them.
@@ -366,6 +378,79 @@ function createLogoutUrlBuilder({
     }
 
     return logoutUrl.toString()
+  }
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string | undefined} the http(s) origin of the URL, or undefined when it is not one
+ */
+function toWebOrigin(value) {
+  if (typeof value !== 'string') {
+    return undefined
+  }
+
+  try {
+    const url = new URL(value)
+
+    return ['https:', 'http:'].includes(url.protocol) ? url.origin : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function createLogoutOriginsResolver({
+  getPrimaryProviderId,
+  getOidcMetadata,
+  getHubOrigin
+}) {
+  /**
+   * The origins a sign-out passes through before it returns to the hub, for
+   * the confirmation page's CSP form-action: browsers hold every redirect
+   * after a form post to it. They are the end-session endpoint's origin and
+   * the issuer's, as an identity provider on a custom domain (Defra CI's
+   * your-account.defra.gov.uk) redirects to its issuer host (b2clogin.com)
+   * to finish, and the post-logout redirect URI's, which comes from the
+   * configured hub origin and may not be the origin the user is browsing on.
+   * Uses the same provider, metadata and redirect URI as buildLogoutUrl.
+   * @param {object} request - The Hapi request.
+   * @param {object} [options]
+   * @param {object} [options.authSession] - Session to sign out instead of the stored hub session.
+   * @param {string} [options.returnPath] - As for buildLogoutUrl.
+   * @returns {Promise<string[]>} The origins; only the post-logout one when the provider has no end-session endpoint, as sign-out then redirects straight there.
+   * @throws {TypeError} when the end-session endpoint or post-logout redirect URI is not an http(s) URL
+   */
+  return async function getLogoutOrigins(
+    request,
+    { authSession = getHubAuthSession(request), returnPath } = {}
+  ) {
+    const providerId = authSession?.authProvider ?? getPrimaryProviderId?.()
+    const metadata = await getOidcMetadata(providerId)
+    const postLogoutOrigin = toWebOrigin(
+      resolvePostLogoutRedirectUri(getHubOrigin, returnPath)
+    )
+
+    if (!postLogoutOrigin) {
+      throw new TypeError('Post-logout redirect URI is not an http(s) URL')
+    }
+
+    if (!metadata.end_session_endpoint) {
+      return [postLogoutOrigin]
+    }
+
+    const endSessionOrigin = toWebOrigin(metadata.end_session_endpoint)
+
+    if (!endSessionOrigin) {
+      throw new TypeError('OIDC end_session_endpoint is not an http(s) URL')
+    }
+
+    const issuerOrigin = toWebOrigin(metadata.issuer)
+
+    return [
+      ...new Set(
+        [endSessionOrigin, issuerOrigin, postLogoutOrigin].filter(Boolean)
+      )
+    ]
   }
 }
 
@@ -396,6 +481,11 @@ export function createOidcClient(options) {
   return {
     buildAuthorizationUrl: createAuthorizationUrlBuilder(sharedDependencies),
     buildLogoutUrl: createLogoutUrlBuilder({
+      getPrimaryProviderId,
+      getOidcMetadata,
+      getHubOrigin
+    }),
+    getLogoutOrigins: createLogoutOriginsResolver({
       getPrimaryProviderId,
       getOidcMetadata,
       getHubOrigin
