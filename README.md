@@ -179,7 +179,8 @@ plugin (`blankie`) has set the header, an `onPreResponse` hook appends them to
 the `form-action` directive of that response, leaving the rest of the policy
 as it is. Blankie's own route options cannot do it: they replace the whole
 policy and are fixed at route registration. If discovery fails, the
-confirmation page fails as sign-out would.
+confirmation page still renders, with `form-action` left as `'self'`, and the
+error is logged; the sign-out post then still resets the session.
 
 A successful sign-in at `/sso` clears the session's CSRF token, so a new one is
 issued.

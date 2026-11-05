@@ -1,6 +1,10 @@
 import Hapi from '@hapi/hapi'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
+const { logger } = vi.hoisted(() => ({ logger: { error: vi.fn() } }))
+
+vi.mock('@defra/lis-hubs-infra-core', () => ({ logger }))
+
 import { createHubAuth } from '../../src/authentication/hub-auth.js'
 import {
   addFormActionSources,
@@ -53,14 +57,14 @@ function findRoute(method, path, overrides = {}) {
   }).find((route) => route.method === method && route.path === path)
 }
 
-// Stands in for Blankie, which the hubs register after hub auth, and which
-// names the header in title case.
+// Stands in for Blankie 5, which the hubs register after hub auth, and which
+// assigns the header into response.headers under a title-case name.
 const cspPlugin = {
   name: 'blankie',
   register(server) {
     server.ext('onPreResponse', (request, h) => {
       if (!request.response.isBoom) {
-        request.response.header('Content-Security-Policy', policy)
+        request.response.headers['Content-Security-Policy'] = policy
       }
 
       return h.continue
@@ -164,11 +168,12 @@ describe('createSignOutRoutes()', () => {
     expect(getLogoutOrigins).not.toHaveBeenCalled()
   })
 
-  test('fails the confirmation page as sign-out would when discovery fails', async () => {
+  test('still renders the confirmation page, logging the error and not widening the policy, when discovery fails', async () => {
     // Arrange
+    const discoveryError = new Error('discovery failed')
     const route = findRoute('GET', '/signout', {
       getLogoutOrigins: async () => {
-        throw new Error('discovery failed')
+        throw discoveryError
       }
     })
     const h = createToolkit()
@@ -182,8 +187,18 @@ describe('createSignOutRoutes()', () => {
     }
 
     // Assert
-    expect(error.message).toBe('discovery failed')
-    expect(h.view).not.toHaveBeenCalled()
+    expect(error).toBeUndefined()
+    expect(h.view).toHaveBeenCalledWith('auth/sign-out', {
+      pageTitle: 'Are you sure you want to sign out?',
+      signOutHref: '/signout'
+    })
+    expect(h.result.plugins['lis-hub-auth-sign-out']).toEqual({
+      logoutOrigins: []
+    })
+    expect(logger.error).toHaveBeenCalledWith(
+      discoveryError,
+      'Sign-out origins unavailable, so the sign-out page CSP is not widened'
+    )
   })
 
   test('redirects the old GET /auth/logout to the sign-out confirmation', () => {
@@ -242,6 +257,11 @@ describe('sign-out page CSP', () => {
     expect(signOutResponse.headers['content-security-policy']).toBe(
       "base-uri 'self';default-src 'self';form-action 'self' https://identity.example https://issuer.example;object-src 'none'"
     )
+    expect(
+      Object.keys(signOutResponse.request.response.headers).filter(
+        (name) => name.toLowerCase() === 'content-security-policy'
+      )
+    ).toEqual(['Content-Security-Policy'])
     expect(otherResponse.headers['content-security-policy']).toBe(policy)
   })
 

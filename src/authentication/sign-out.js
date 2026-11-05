@@ -1,3 +1,5 @@
+import { logger } from '@defra/lis-hubs-infra-core'
+
 import { clearHubAuthSession } from './session.js'
 
 // The CSRF plugin's name, which keys its route options and request.plugins.
@@ -78,7 +80,10 @@ function createSignOutConfirmationRoute({ getLogoutOrigins }) {
         return h.redirect('/')
       }
 
-      const logoutOrigins = await getLogoutOrigins(request)
+      const logoutOrigins = await getLogoutOriginsOrNone(
+        getLogoutOrigins,
+        request
+      )
       // The view comes from @defra/lis-infra-ui-services, which every hub
       // registers, and reads csrfToken from the view context.
       const response = h.view('auth/sign-out', {
@@ -89,6 +94,27 @@ function createSignOutConfirmationRoute({ getLogoutOrigins }) {
 
       return response
     }
+  }
+}
+
+/**
+ * The page still renders when discovery fails, with form-action left as
+ * 'self'. The sign-out post then resets the session as usual; only the
+ * browser's redirect to the identity provider may be refused.
+ * @param {(request: object) => Promise<string[]>} getLogoutOrigins
+ * @param {object} request
+ * @returns {Promise<string[]>}
+ */
+async function getLogoutOriginsOrNone(getLogoutOrigins, request) {
+  try {
+    return await getLogoutOrigins(request)
+  } catch (error) {
+    logger.error(
+      error,
+      'Sign-out origins unavailable, so the sign-out page CSP is not widened'
+    )
+
+    return []
   }
 }
 
@@ -128,7 +154,10 @@ export function allowSignOutFormAction(server) {
         return h.continue
       }
 
-      // Blankie names the header in title case; hapi keeps the case it is given.
+      // response.header() stores names lowercased, but Blankie 5 assigns
+      // `Content-Security-Policy` into response.headers directly, so the
+      // name is looked up in any case and the value replaced under that same
+      // name: response.header() would add a second, lowercased entry.
       const headerName = Object.keys(response.headers).find(
         (name) => name.toLowerCase() === CSP_HEADER
       )
@@ -138,7 +167,7 @@ export function allowSignOutFormAction(server) {
         return h.continue
       }
 
-      response.header(headerName, addFormActionSources(policy, logoutOrigins))
+      response.headers[headerName] = addFormActionSources(policy, logoutOrigins)
 
       return h.continue
     },
