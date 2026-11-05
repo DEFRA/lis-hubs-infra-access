@@ -12,7 +12,10 @@ const { logger, verify } = vi.hoisted(() => ({
   })
 }))
 
-vi.mock('@defra/lis-hubs-infra-core', () => ({ logger }))
+vi.mock('@defra/lis-hubs-infra-core', () => ({
+  logger,
+  JWT_ASSERTION_HEADER: 'x-lis-jwt-assertion'
+}))
 
 vi.mock('../../src/authentication/service-token/verifier.js', () => ({
   createServiceTokenVerifier: vi.fn(() => ({ verify }))
@@ -39,7 +42,6 @@ const jwtConfig = {
   audience: 'livestock-spokes',
   ttlSeconds: 3600
 }
-const cookieName = 'livestock_hub_jwt'
 const serviceHeaders = { authorization: 'Bearer valid-service-token' }
 const caseworker = {
   sub: 'user-1',
@@ -50,8 +52,6 @@ function createOptions(overrides = {}) {
   return {
     spokeId: 'cattle-home',
     hubOrigins: [hubOrigin],
-    cookieName,
-    cookieOptions: { encoding: 'none', isSecure: false },
     assetPath: '/public',
     port: 3201,
     basePath: '/cattle',
@@ -98,8 +98,8 @@ async function createServer(overrides = {}) {
   return server
 }
 
-async function cookieFor(session) {
-  return `${cookieName}=${await issueHubJwt(session, jwtConfig)}`
+async function userHeaderFor(session) {
+  return { 'x-lis-jwt-assertion': await issueHubJwt(session, jwtConfig) }
 }
 
 afterEach(() => {
@@ -144,7 +144,7 @@ describe('createSpokeAuth()', () => {
       // Act
       const response = await server.inject({
         url,
-        headers: { cookie: await cookieFor(caseworker) }
+        headers: await userHeaderFor(caseworker)
       })
 
       // Assert
@@ -199,18 +199,54 @@ describe('createSpokeAuth()', () => {
     )
   })
 
-  test('redirects to hub login when the user cookie is invalid', async () => {
+  test('redirects to hub login when the user token header is invalid', async () => {
     // Arrange
     const server = await createServer()
 
     // Act
     const response = await server.inject({
       url: '/page',
-      headers: { ...serviceHeaders, cookie: `${cookieName}=not-a-jwt` }
+      headers: { ...serviceHeaders, 'x-lis-jwt-assertion': 'not-a-jwt' }
     })
 
     // Assert
     expect(response.statusCode).toBe(302)
+  })
+
+  test('ignores a hub JWT sent as a cookie', async () => {
+    // Arrange
+    const server = await createServer()
+    const token = await issueHubJwt(caseworker, jwtConfig)
+
+    // Act
+    const response = await server.inject({
+      url: '/maybe',
+      headers: { ...serviceHeaders, cookie: `livestock_hub_jwt=${token}` }
+    })
+
+    // Assert
+    expect(response.statusCode).toBe(200)
+    expect(response.result.isAuthenticated).toBe(false)
+  })
+
+  test('rejects a valid user token header without a valid service token', async () => {
+    // Arrange
+    const server = await createServer()
+
+    // Act
+    const response = await server.inject({
+      url: '/maybe',
+      headers: {
+        authorization: 'Bearer forged',
+        ...(await userHeaderFor(caseworker))
+      }
+    })
+
+    // Assert
+    expect(response.statusCode).toBe(401)
+    expect(response.result).toEqual({
+      message: 'Service authentication required'
+    })
   })
 
   test('lets a try route through unauthenticated when there is no user', async () => {
@@ -240,14 +276,14 @@ describe('createSpokeAuth()', () => {
     expect(verify).not.toHaveBeenCalled()
   })
 
-  test('authenticates a valid service token and user cookie', async () => {
+  test('authenticates a valid service token and user token header', async () => {
     // Arrange
     const server = await createServer()
 
     // Act
     const response = await server.inject({
       url: '/page',
-      headers: { ...serviceHeaders, cookie: await cookieFor(caseworker) }
+      headers: { ...serviceHeaders, ...(await userHeaderFor(caseworker)) }
     })
 
     // Assert
@@ -270,7 +306,7 @@ describe('createSpokeAuth()', () => {
       url: '/page',
       headers: {
         ...serviceHeaders,
-        cookie: await cookieFor({ sub: 'user-2', statements: [] })
+        ...(await userHeaderFor({ sub: 'user-2', statements: [] }))
       }
     })
 
@@ -286,7 +322,7 @@ describe('createSpokeAuth()', () => {
     // Act
     const response = await server.inject({
       url: '/page',
-      headers: { ...serviceHeaders, cookie: await cookieFor(caseworker) }
+      headers: { ...serviceHeaders, ...(await userHeaderFor(caseworker)) }
     })
 
     // Assert
@@ -304,7 +340,7 @@ describe('createSpokeAuth()', () => {
     // Act
     const response = await server.inject({
       url: '/page',
-      headers: { ...serviceHeaders, cookie: await cookieFor(caseworker) }
+      headers: { ...serviceHeaders, ...(await userHeaderFor(caseworker)) }
     })
 
     // Assert

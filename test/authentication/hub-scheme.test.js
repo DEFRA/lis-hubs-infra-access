@@ -21,7 +21,12 @@ async function createServer(overrides = {}) {
   server.ext('onRequest', (request, h) => {
     const session = request.headers['x-test-session']
     const values = new Map(
-      session ? [['hub-auth-session', JSON.parse(session)]] : []
+      session
+        ? [
+            ['hub-auth-session', JSON.parse(session)],
+            ['hub-jwt', 'previously-issued-jwt']
+          ]
+        : []
     )
     request.yar = {
       get: (key) => values.get(key),
@@ -35,8 +40,6 @@ async function createServer(overrides = {}) {
   await server.register(
     createHubAuth({
       hubId: 'back-office',
-      getHubJwtCookieName: () => 'hub-jwt',
-      getCookieOptions: () => ({ isSecure: false }),
       getHubJwtConfig: () => ({}),
       resolveAuthSession: async () => ({}),
       buildAuthorizationUrl: async () => 'https://identity.example/authorize',
@@ -245,7 +248,8 @@ describe('lis-hub-session scheme', () => {
     // Assert
     expect(response.statusCode).toBe(302)
     expect(response.headers.location).toBe('/auth/not-authorised')
-    expect(response.headers['set-cookie'][0]).toMatch(/^hub-jwt=;/)
+    expect(response.headers['set-cookie']).toBeUndefined()
+    expect(response.request.yar.get('hub-jwt')).toBeUndefined()
     expect(buildLogoutUrl).not.toHaveBeenCalled()
     expect(response.request.yar.get('hub-auth-session')).toEqual(
       signedInSession
@@ -293,7 +297,8 @@ describe('lis-hub-session scheme', () => {
     // Assert
     expect(pageResponse.statusCode).toBe(302)
     expect(pageResponse.headers.location).toBe('/auth/not-authorised')
-    expect(pageResponse.headers['set-cookie'][0]).toMatch(/^hub-jwt=;/)
+    expect(pageResponse.headers['set-cookie']).toBeUndefined()
+    expect(pageResponse.request.yar.get('hub-jwt')).toBeUndefined()
     expect(tryResponse.statusCode).toBe(302)
     expect(tryResponse.headers.location).toBe('/auth/not-authorised')
     expect(authorize).not.toHaveBeenCalled()
@@ -336,7 +341,8 @@ describe('lis-hub-session scheme', () => {
     // Assert
     expect(response.statusCode).toBe(302)
     expect(response.headers.location).toBe('/auth/not-authorised')
-    expect(response.headers['set-cookie'][0]).toMatch(/^hub-jwt=;/)
+    expect(response.headers['set-cookie']).toBeUndefined()
+    expect(response.request.yar.get('hub-jwt')).toBeUndefined()
   })
 
   test('renders the not-authorised view with a 403 and sign out for a signed-in user without running authorize', async () => {

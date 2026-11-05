@@ -57,7 +57,6 @@ function createAuthenticate({
   verifyCaller,
   isPublic,
   hubOrigins,
-  cookieName,
   port,
   basePath,
   secret,
@@ -71,7 +70,6 @@ function createAuthenticate({
     }
 
     const payload = await getHubJwtPayloadFromRequest(request, {
-      cookieName,
       secret,
       issuer: hubOrigins,
       audience
@@ -120,14 +118,12 @@ function createAccessCheck({ isPublic, moduleAccess, authorize }) {
  * Creates a Hapi plugin that registers the `lis-spoke` auth scheme as the
  * server's default strategy. Every authenticated request needs a valid hub
  * service token (`Authorization: Bearer`) and, unless the spoke is public, a
- * valid hub JWT cookie. Routes opt out with `auth: false`, or accept signed-out
+ * valid hub JWT in the `x-lis-jwt-assertion` header set by the hub proxy. Routes opt out with `auth: false`, or accept signed-out
  * users with `auth: { mode: 'try' }` or `auth: { mode: 'optional' }`.
  *
  * @param {object} options
  * @param {string} options.spokeId - Registry id of this spoke; the service token audience is `lis-apps-<spokeId>`.
  * @param {string[]} options.hubOrigins - Accepted hub JWT issuers; the first is the default login origin.
- * @param {string} options.cookieName - Hub JWT cookie name.
- * @param {object} options.cookieOptions - Hapi state options for the hub JWT cookie.
  * @param {number} options.port - Spoke port, used to build the login return URL.
  * @param {string} [options.basePath] - Spoke base path, used to build the login return URL.
  * @param {string} options.secret - Hub JWT signing secret.
@@ -139,8 +135,6 @@ function createAccessCheck({ isPublic, moduleAccess, authorize }) {
 export function createSpokeAuth({
   spokeId,
   hubOrigins,
-  cookieName,
-  cookieOptions,
   port,
   basePath,
   secret,
@@ -165,7 +159,6 @@ export function createSpokeAuth({
     verifyCaller: createCallerVerifier(spokeId),
     isPublic,
     hubOrigins,
-    cookieName,
     port,
     basePath,
     secret,
@@ -181,7 +174,6 @@ export function createSpokeAuth({
     plugin: {
       name: 'spokeAuth',
       register(server) {
-        server.state(cookieName, cookieOptions)
         server.auth.scheme(SPOKE_AUTH_STRATEGY, () => ({ authenticate }))
         server.auth.strategy(SPOKE_AUTH_STRATEGY, SPOKE_AUTH_STRATEGY)
         server.auth.default(SPOKE_AUTH_STRATEGY)

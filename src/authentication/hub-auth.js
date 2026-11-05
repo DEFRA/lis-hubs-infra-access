@@ -4,14 +4,12 @@ import { HUBS } from '@defra/lis-hubs-infra-registry'
 
 import {
   clearHubAuthSession,
+  clearHubJwt,
   getHubAuthSession,
-  setHubAuthSession
+  setHubAuthSession,
+  setHubJwt
 } from './session.js'
-import {
-  getHubJwtCookieOptions,
-  getReturnUrlFromRequest,
-  issueHubJwt
-} from './tokens/index.js'
+import { getReturnUrlFromRequest, issueHubJwt } from './tokens/index.js'
 import { getAuthorizedSpecies } from '../authorization/modules/species.js'
 import { hydrateAuthorization } from '../authorization/permissions/hydrate.js'
 
@@ -70,29 +68,23 @@ function createIdpError(query) {
 /**
  * Builds the shared response for a hub-level refusal. Authentication and
  * authorisation are kept apart: the user stays signed in to the hub, but no
- * spoke JWT is issued and they land on the not-authorised page, which offers
+ * spoke JWT is held in their session and they land on the not-authorised page, which offers
  * Sign out. A refused sign-in stores its session flagged `refused` so every
  * later request is sent to the same page without re-running the hub's checks.
  *
  * @param {object} options
- * @param {Function} options.getHubJwtCookieName - Returns the hub JWT cookie name.
- * @param {Function} options.getCookieOptions - Returns the hub JWT cookie options.
  * @param {string} options.notAuthorisedPath - Hub path the user lands on.
  * @returns {(request: object, h: object, authSession?: object) => object} Returns the redirect.
  */
-function createRefuseAccess({
-  getHubJwtCookieName,
-  getCookieOptions,
-  notAuthorisedPath
-}) {
+function createRefuseAccess({ notAuthorisedPath }) {
   return function refuseAccess(request, h, authSession) {
     if (authSession) {
       setHubAuthSession(request, { ...authSession, refused: true })
     }
 
-    return h
-      .redirect(notAuthorisedPath)
-      .unstate(getHubJwtCookieName(), getCookieOptions())
+    clearHubJwt(request)
+
+    return h.redirect(notAuthorisedPath)
   }
 }
 
@@ -101,9 +93,7 @@ function isRefusedSession(authSession) {
 }
 
 function createLoginController({
-  getCookieOptions,
   getHubJwtConfig,
-  getHubJwtCookieName,
   providerId,
   buildAuthorizationUrl,
   notAuthorisedPath,
@@ -129,11 +119,9 @@ function createLoginController({
           return refuseAccess(request, h)
         }
 
-        const jwt = await issueHubJwt(authSession, getHubJwtConfig())
+        setHubJwt(request, await issueHubJwt(authSession, getHubJwtConfig()))
 
-        return h
-          .redirect(returnUrl)
-          .state(getHubJwtCookieName(), jwt, getCookieOptions())
+        return h.redirect(returnUrl)
       }
 
       const resolvedProviderId =
@@ -166,9 +154,7 @@ function createLoginController({
 }
 
 function createCallbackController({
-  getCookieOptions,
   getHubJwtConfig,
-  getHubJwtCookieName,
   completeAuthorizationCodeGrant,
   resolveAuthSession,
   refuseAccess,
@@ -222,20 +208,17 @@ function createCallbackController({
         return refuseAccess(request, h)
       }
 
-      const jwt = await issueHubJwt(enrichedAuthSession, getHubJwtConfig())
+      setHubJwt(
+        request,
+        await issueHubJwt(enrichedAuthSession, getHubJwtConfig())
+      )
 
-      return h
-        .redirect(returnUrl)
-        .state(getHubJwtCookieName(), jwt, getCookieOptions())
+      return h.redirect(returnUrl)
     }
   }
 }
 
-function createLogoutController({
-  getCookieOptions,
-  getHubJwtCookieName,
-  buildLogoutUrl
-}) {
+function createLogoutController({ buildLogoutUrl }) {
   return {
     options: {
       auth: false
@@ -244,30 +227,16 @@ function createLogoutController({
       // Build the logout URL while the session is still alive (it reads the
       // id token for id_token_hint), but invalidate the session in `finally`
       // so a failure building the URL cannot leave the session replayable.
+      // Resetting the session also drops the hub JWT it holds.
       try {
         const logoutUrl = await buildLogoutUrl(request)
 
-        return h
-          .redirect(logoutUrl)
-          .unstate(getHubJwtCookieName(), getCookieOptions())
+        return h.redirect(logoutUrl)
       } finally {
         clearHubAuthSession(request)
       }
     }
   }
-}
-
-/**
- * Creates cookie options for hub JWT authentication.
- *
- * @param {object} options - Cookie configuration options.
- * @param {number} options.ttlSeconds - Time to live in seconds for the cookie.
- * @returns {object} Cookie options compatible with Hapi server state configuration.
- */
-export function createHubCookieOptions({ ttlSeconds }) {
-  return getHubJwtCookieOptions({
-    ttlSeconds
-  })
 }
 
 function createNotAuthorisedRoute({ path, loginPath }) {
@@ -295,19 +264,17 @@ function createNotAuthorisedRoute({ path, loginPath }) {
 }
 
 /**
- * Builds the hub JWT cookie state and the login, `/sso`, `/auth/logout` and
+ * Builds the login, `/sso`, `/auth/logout` and
  * `/signout` routes (all `auth: false`), plus the shared not-authorised route
  * when the hub uses the default not-authorised path.
  *
  * @param {object} options - `createHubAuth` options, minus `pluginName` and `authorize`.
  * @param {Function} options.refuseAccess - Shared hub-level refusal response.
  * @param {boolean} options.registerNotAuthorisedRoute - Whether to register the shared not-authorised route.
- * @returns {(server: object) => void} Registers the cookie state and routes on a server.
+ * @returns {(server: object) => void} Registers the routes on a server.
  */
 function createHubAuthRegistration(options) {
   const {
-    getHubJwtCookieName,
-    getCookieOptions,
     getHubJwtConfig,
     resolveAuthSession,
     buildAuthorizationUrl,
@@ -321,28 +288,20 @@ function createHubAuthRegistration(options) {
   } = options
   const loginPath = loginRoutes[0].path
   const callbackController = createCallbackController({
-    getCookieOptions,
     getHubJwtConfig,
-    getHubJwtCookieName,
     completeAuthorizationCodeGrant,
     resolveAuthSession,
     refuseAccess,
     isAuthorized,
     loginPath
   })
-  const logoutController = createLogoutController({
-    getCookieOptions,
-    getHubJwtCookieName,
-    buildLogoutUrl
-  })
+  const logoutController = createLogoutController({ buildLogoutUrl })
   const routes = [
     ...loginRoutes.map(({ path, providerId }) => ({
       method: 'GET',
       path,
       ...createLoginController({
-        getCookieOptions,
         getHubJwtConfig,
-        getHubJwtCookieName,
         providerId,
         buildAuthorizationUrl,
         notAuthorisedPath,
@@ -378,7 +337,6 @@ function createHubAuthRegistration(options) {
   ]
 
   return (server) => {
-    server.state(getHubJwtCookieName(), getCookieOptions())
     server.route(routes)
   }
 }
@@ -417,7 +375,7 @@ function createHubSessionScheme({ loginPath, caller }) {
 /**
  * Creates a Hapi plugin for hub authentication built on a Hapi auth scheme.
  *
- * Registers the hub JWT cookie state, the login, `/sso`, `/auth/logout` and
+ * Registers the login, `/sso`, `/auth/logout` and
  * `/signout` routes (all `auth: false`), the shared not-authorised route
  * (`auth: { mode: 'try' }`, unless the hub sets its own `notAuthorisedPath`), and the
  * `lis-hub-session` scheme and
@@ -428,11 +386,13 @@ function createHubSessionScheme({ loginPath, caller }) {
  * service name (`lis-hubs-<hubId>`) so views and handlers can read which hub
  * a request belongs to the same way in a hub as in a spoke.
  *
+ * The hub JWT minted at sign-in is held in the hub's yar session (read it with
+ * `getHubJwt`), so the browser only carries the session cookie; the hub's
+ * proxy sends it to spokes in the `x-lis-jwt-assertion` header.
+ *
  * @param {object} options - Plugin configuration options.
  * @param {string} [options.pluginName='auth'] - Name of the plugin.
  * @param {string} options.hubId - Registry id of this hub: 'front-office' or 'back-office'.
- * @param {Function} options.getHubJwtCookieName - Function that returns the JWT cookie name.
- * @param {Function} options.getCookieOptions - Function that returns cookie options.
  * @param {Function} options.getHubJwtConfig - Function that returns JWT configuration.
  * @param {Function} options.resolveAuthSession - Function to resolve and enrich auth session with authorization data.
  * @param {Function} options.buildAuthorizationUrl - Function to build OIDC authorization URL.
@@ -474,11 +434,7 @@ export function createHubAuth({
   }
 
   const landingPath = notAuthorisedPath ?? DEFAULT_NOT_AUTHORISED_PATH
-  const refuseAccess = createRefuseAccess({
-    getHubJwtCookieName: options.getHubJwtCookieName,
-    getCookieOptions: options.getCookieOptions,
-    notAuthorisedPath: landingPath
-  })
+  const refuseAccess = createRefuseAccess({ notAuthorisedPath: landingPath })
   // The hub-wide rule, applied wherever a JWT is issued and on every
   // authenticated request. Without a rule every signed-in user is authorised.
   const isAuthorized = (authSession, request) =>

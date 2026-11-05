@@ -6,10 +6,8 @@ const { logger } = vi.hoisted(() => ({
 
 vi.mock('@defra/lis-hubs-infra-core', () => ({ logger }))
 
-import {
-  createHubAuth,
-  createHubCookieOptions
-} from '../../src/authentication/hub-auth.js'
+import { createHubAuth } from '../../src/authentication/hub-auth.js'
+import { verifyHubJwt } from '../../src/authentication/tokens/jwt.js'
 
 afterEach(() => {
   vi.clearAllMocks()
@@ -57,8 +55,6 @@ function registerPlugin(overrides = {}) {
   const state = vi.fn()
   const plugin = createHubAuth({
     hubId: 'front-office',
-    getHubJwtCookieName: () => 'hub-jwt',
-    getCookieOptions: () => ({ isSecure: false }),
     getHubJwtConfig: () => jwtConfig,
     resolveAuthSession: async () => ({}),
     buildAuthorizationUrl: async () => 'https://identity.example/authorize',
@@ -81,23 +77,7 @@ function registerPlugin(overrides = {}) {
 }
 
 describe('createHubAuth()', () => {
-  test('creates standard hub cookie options', () => {
-    // Arrange / Act
-    const options = createHubCookieOptions({ ttlSeconds: 60 })
-
-    // Assert
-    expect(options).toEqual({
-      encoding: 'none',
-      ttl: 60000,
-      isHttpOnly: true,
-      isSecure: true,
-      isSameSite: 'Lax',
-      clearInvalid: true,
-      path: '/'
-    })
-  })
-
-  test('registers auth state and login lifecycle routes', () => {
+  test('registers login lifecycle routes without any cookie state', () => {
     // Arrange / Act
     const { plugin, routes, state } = registerPlugin({
       pluginName: 'hub-auth'
@@ -112,7 +92,7 @@ describe('createHubAuth()', () => {
       '/signout',
       '/auth/not-authorised'
     ])
-    expect(state.mock.calls[0]).toEqual(['hub-jwt', { isSecure: false }])
+    expect(state).not.toHaveBeenCalled()
   })
 
   test('login redirects unauthenticated users to their identity provider', async () => {
@@ -143,7 +123,10 @@ describe('createHubAuth()', () => {
     const authorize = vi.fn(async () => false)
     const { routes } = registerPlugin({ authorize })
     const request = createRequest(
-      new Map([['hub-auth-session', { sub: 'user-1', statements: [] }]])
+      new Map([
+        ['hub-auth-session', { sub: 'user-1', statements: [] }],
+        ['hub-jwt', 'previously-issued-jwt']
+      ])
     )
     const h = createToolkit()
 
@@ -157,7 +140,27 @@ describe('createHubAuth()', () => {
     )
     expect(h.redirect.mock.calls[0][0]).toBe('/auth/not-authorised')
     expect(h.result.state).not.toHaveBeenCalled()
-    expect(h.result.unstate.mock.calls[0][0]).toBe('hub-jwt')
+    expect(h.result.unstate).not.toHaveBeenCalled()
+    expect(request.yar.get('hub-jwt')).toBeUndefined()
+  })
+
+  test('login stores a JWT in the session for an authorised signed-in session', async () => {
+    // Arrange
+    const { routes } = registerPlugin({ authorize: async () => true })
+    const request = createRequest(
+      new Map([['hub-auth-session', { sub: 'user-1', statements: [] }]])
+    )
+    request.query.returnUrl = '/cattle'
+    const h = createToolkit()
+
+    // Act
+    await routes[0].handler(request, h)
+
+    // Assert
+    expect(h.redirect.mock.calls[0][0]).toBe('/cattle')
+    expect(h.result.state).not.toHaveBeenCalled()
+    const payload = await verifyHubJwt(request.yar.get('hub-jwt'), jwtConfig)
+    expect(payload.sub).toBe('user-1')
   })
 
   test('callback stores the session but refuses a user that fails authorize without issuing a JWT', async () => {
@@ -173,7 +176,10 @@ describe('createHubAuth()', () => {
       resolveAuthSession: async () => ({ statements: [] })
     })
     const request = createRequest(
-      new Map([['hub-auth-flow', { state: 'state-1' }]])
+      new Map([
+        ['hub-auth-flow', { state: 'state-1' }],
+        ['hub-jwt', 'previously-issued-jwt']
+      ])
     )
     const h = createToolkit()
 
@@ -187,7 +193,8 @@ describe('createHubAuth()', () => {
     })
     expect(h.redirect.mock.calls[0][0]).toBe('/auth/not-authorised')
     expect(h.result.state).not.toHaveBeenCalled()
-    expect(h.result.unstate.mock.calls[0][0]).toBe('hub-jwt')
+    expect(h.result.unstate).not.toHaveBeenCalled()
+    expect(request.yar.get('hub-jwt')).toBeUndefined()
   })
 
   test('login returns 503 when the identity provider is unavailable', async () => {
@@ -239,7 +246,9 @@ describe('createHubAuth()', () => {
 
     // Assert
     expect(h.redirect.mock.calls[0][0]).toBe('/cattle')
-    expect(h.result.state.mock.calls[0][0]).toBe('hub-jwt')
+    expect(h.result.state).not.toHaveBeenCalled()
+    const payload = await verifyHubJwt(request.yar.get('hub-jwt'), jwtConfig)
+    expect(payload).toMatchObject({ sub: 'user-1', email: 'user@example.com' })
     expect(request.yar.get('hub-auth-session')).toEqual({
       ...authSession,
       statements: [{ role: 'lis-role-reader', cphs: '*' }]
@@ -281,7 +290,8 @@ describe('createHubAuth()', () => {
     const request = createRequest(
       new Map([
         ['hub-auth-session', { sub: 'previous-user' }],
-        ['hub-auth-flow', { state: 'state-1' }]
+        ['hub-auth-flow', { state: 'state-1' }],
+        ['hub-jwt', 'previously-issued-jwt']
       ])
     )
     const h = createToolkit()
@@ -293,10 +303,8 @@ describe('createHubAuth()', () => {
     expect(buildLogoutUrl).not.toHaveBeenCalled()
     expect(h.redirect.mock.calls[0][0]).toBe('/auth/not-authorised')
     expect(h.result.state).not.toHaveBeenCalled()
-    expect(h.result.unstate.mock.calls[0]).toEqual([
-      'hub-jwt',
-      { isSecure: false }
-    ])
+    expect(h.result.unstate).not.toHaveBeenCalled()
+    expect(request.yar.get('hub-jwt')).toBeUndefined()
     expect(request.yar.get('hub-auth-session')).toEqual({
       ...authSession,
       refused: true
@@ -315,7 +323,10 @@ describe('createHubAuth()', () => {
       notAuthorisedPath: '/auth/access-denied'
     })
     const request = createRequest(
-      new Map([['hub-auth-session', { sub: 'previous-user' }]])
+      new Map([
+        ['hub-auth-session', { sub: 'previous-user' }],
+        ['hub-jwt', 'previously-issued-jwt']
+      ])
     )
     const h = createToolkit()
 
@@ -324,10 +335,8 @@ describe('createHubAuth()', () => {
 
     // Assert
     expect(h.redirect.mock.calls[0][0]).toBe('/auth/access-denied')
-    expect(h.result.unstate.mock.calls[0]).toEqual([
-      'hub-jwt',
-      { isSecure: false }
-    ])
+    expect(h.result.unstate).not.toHaveBeenCalled()
+    expect(request.yar.get('hub-jwt')).toBeUndefined()
     expect(request.yar.get('hub-auth-session')).toEqual({
       sub: 'user-1',
       refused: true
@@ -349,6 +358,7 @@ describe('createHubAuth()', () => {
     // Assert
     expect(h.redirect.mock.calls[0][0]).toBe('/auth/not-authorised')
     expect(h.result.state).not.toHaveBeenCalled()
+    expect(request.yar.get('hub-jwt')).toBeUndefined()
   })
 
   async function callbackError(query) {
@@ -410,12 +420,13 @@ describe('createHubAuth()', () => {
     expect(logger.warn).not.toHaveBeenCalled()
   })
 
-  test('logout clears auth state and removes the JWT cookie', async () => {
+  test('logout clears auth state including the session JWT', async () => {
     // Arrange
     const request = createRequest(
       new Map([
         ['hub-auth-session', { sub: 'user-1' }],
-        ['hub-auth-flow', { state: 'state-id' }]
+        ['hub-auth-flow', { state: 'state-id' }],
+        ['hub-jwt', 'previously-issued-jwt']
       ])
     )
     const h = createToolkit()
@@ -426,10 +437,8 @@ describe('createHubAuth()', () => {
 
     // Assert
     expect(h.redirect.mock.calls[0][0]).toBe('https://identity.example/logout')
-    expect(h.result.unstate.mock.calls[0]).toEqual([
-      'hub-jwt',
-      { isSecure: false }
-    ])
+    expect(h.result.unstate).not.toHaveBeenCalled()
+    expect(request.yar.get('hub-jwt')).toBeUndefined()
     expect(request.yar.get('hub-auth-session')).toBeUndefined()
     expect(request.yar.get('hub-auth-flow')).toBeUndefined()
   })

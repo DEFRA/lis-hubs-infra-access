@@ -2,12 +2,11 @@
 import { TextEncoder } from 'node:util'
 
 import { SignJWT, jwtVerify } from 'jose'
-import { logger } from '@defra/lis-hubs-infra-core'
+import { JWT_ASSERTION_HEADER, logger } from '@defra/lis-hubs-infra-core'
 
 import { AUTHORIZATION_VERSION } from '../../authorization/constants.js'
 
 const encoder = new TextEncoder()
-const MILLISECONDS_PER_SECOND = 1000
 const JWT_EXPIRED_CODE = 'ERR_JWT_EXPIRED'
 const AUTHZ_VERSION_UNSUPPORTED_CODE = 'ERR_AUTHZ_VERSION_UNSUPPORTED'
 const ROUTINE_FAILURE_CODES = new Set([
@@ -17,24 +16,6 @@ const ROUTINE_FAILURE_CODES = new Set([
 
 function getHubJwtSecret(secret) {
   return encoder.encode(secret)
-}
-
-/**
- * @param {{ ttlSeconds: number }} options
- * @returns {object}
- */
-export function getHubJwtCookieOptions({ ttlSeconds }) {
-  return {
-    encoding: 'none',
-    ttl: ttlSeconds * MILLISECONDS_PER_SECOND,
-    isHttpOnly: true,
-    // Secure is a fixed invariant: the browser always reaches the app over
-    // HTTPS (Caddy locally, the CDP edge deployed).
-    isSecure: true,
-    isSameSite: 'Lax',
-    clearInvalid: true,
-    path: '/'
-  }
 }
 
 /**
@@ -105,14 +86,14 @@ export function getAuthorizationBearerToken(request) {
 
 /**
  * @param {Request} request
- * @param {{ cookieName: string, secret: string, issuer: string, audience: string }} options
+ * @param {{ secret: string, issuer: string, audience: string }} options
  * @returns {Promise<object | null>}
  */
 export async function getHubJwtPayloadFromRequest(
   request,
-  { cookieName, secret, issuer, audience }
+  { secret, issuer, audience }
 ) {
-  const token = request.state?.[cookieName]
+  const token = request.headers?.[JWT_ASSERTION_HEADER]
 
   if (!token) {
     return null

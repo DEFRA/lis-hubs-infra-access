@@ -3,7 +3,10 @@ import { beforeEach, expect, test, vi } from 'vitest'
 
 const { logger } = vi.hoisted(() => ({ logger: { warn: vi.fn() } }))
 
-vi.mock('@defra/lis-hubs-infra-core', () => ({ logger }))
+vi.mock('@defra/lis-hubs-infra-core', () => ({
+  logger,
+  JWT_ASSERTION_HEADER: 'x-lis-jwt-assertion'
+}))
 
 import {
   getAuthorizationBearerToken,
@@ -69,16 +72,29 @@ test('issueHubJwt preserves optional authorization and assurance claims', async 
   expect(payload.amr).toEqual(['pwd', 'mfa'])
 })
 
-test('getHubJwtPayloadFromRequest only accepts the hub session cookie', async () => {
+test('getHubJwtPayloadFromRequest reads the JWT from the user token header', async () => {
+  const token = await issueHubJwt({ sub: 'user-1' }, jwtConfig)
+
+  const payload = await getHubJwtPayloadFromRequest(
+    { headers: { 'x-lis-jwt-assertion': token } },
+    jwtConfig
+  )
+
+  expect(payload.sub).toBe('user-1')
+})
+
+test('getHubJwtPayloadFromRequest only accepts the user token header', async () => {
+  const token = await issueHubJwt({ sub: 'user-1' }, jwtConfig)
+
   const payload = await getHubJwtPayloadFromRequest(
     {
       headers: {
-        authorization: 'Bearer not-used-here'
+        authorization: `Bearer ${token}`,
+        cookie: `livestock_hub_jwt=${token}`
       },
-      state: {}
+      state: { livestock_hub_jwt: token }
     },
     {
-      cookieName: 'livestock_hub_jwt',
       secret: jwtConfig.secret,
       issuer: jwtConfig.issuer,
       audience: jwtConfig.audience
@@ -88,32 +104,32 @@ test('getHubJwtPayloadFromRequest only accepts the hub session cookie', async ()
   expect(payload).toBeNull()
 })
 
-test('returns null for missing and invalid hub session cookies', async () => {
+test('returns null for missing and invalid user token headers', async () => {
   const options = {
-    cookieName: 'hub-jwt',
     secret: jwtConfig.secret,
     issuer: jwtConfig.issuer,
     audience: jwtConfig.audience
   }
 
-  expect(await getHubJwtPayloadFromRequest({ state: {} }, options)).toBeNull()
+  expect(await getHubJwtPayloadFromRequest({ headers: {} }, options)).toBeNull()
+  expect(await getHubJwtPayloadFromRequest({}, options)).toBeNull()
   expect(
     await getHubJwtPayloadFromRequest(
-      { state: { 'hub-jwt': 'not-a-jwt' } },
+      { headers: { 'x-lis-jwt-assertion': 'not-a-jwt' } },
       options
     )
   ).toBeNull()
 })
 
-test('expired hub session cookies return null without logging', async () => {
+test('expired hub JWTs return null without logging', async () => {
   const token = await issueHubJwt(
     { sub: 'user-1' },
     { ...jwtConfig, ttlSeconds: -60 }
   )
 
   const payload = await getHubJwtPayloadFromRequest(
-    { state: { 'hub-jwt': token } },
-    { cookieName: 'hub-jwt', ...jwtConfig }
+    { headers: { 'x-lis-jwt-assertion': token } },
+    jwtConfig
   )
 
   expect(payload).toBeNull()
@@ -125,8 +141,8 @@ test('invalid signature logs a warning without the token', async () => {
   const tampered = `${token.slice(0, -4)}AAAA`
 
   const payload = await getHubJwtPayloadFromRequest(
-    { state: { 'hub-jwt': tampered } },
-    { cookieName: 'hub-jwt', ...jwtConfig }
+    { headers: { 'x-lis-jwt-assertion': tampered } },
+    jwtConfig
   )
 
   expect(payload).toBeNull()
@@ -150,8 +166,8 @@ test('authorization version mismatch returns null without logging', async () => 
     .sign(new TextEncoder().encode(jwtConfig.secret))
 
   const payload = await getHubJwtPayloadFromRequest(
-    { state: { 'hub-jwt': token } },
-    { cookieName: 'hub-jwt', ...jwtConfig }
+    { headers: { 'x-lis-jwt-assertion': token } },
+    jwtConfig
   )
 
   expect(payload).toBeNull()
