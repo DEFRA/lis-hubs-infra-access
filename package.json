@@ -33,8 +33,6 @@
   "author": "Defra DDTS",
   "license": "OGL-UK-3.0",
   "dependencies": {
-    "convict": "6.2.5",
-    "convict-format-with-validator": "6.2.0",
     "jose": "6.2.8"
   },
   "peerDependencies": {
