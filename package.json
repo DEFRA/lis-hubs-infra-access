@@ -41,9 +41,9 @@
     "@hapi/boom": "10.0.1"
   },
   "devDependencies": {
-    "@defra/lis-hubs-infra-core": "^0.31.0",
-    "@defra/lis-hubs-infra-registry": "^0.13.0",
-    "@defra/lis-infra-eslint-config": "^0.6.0",
+    "@defra/lis-hubs-infra-core": "^0.33.3",
+    "@defra/lis-hubs-infra-registry": "^0.13.3",
+    "@defra/lis-infra-eslint-config": "^0.12.3",
     "@hapi/boom": "10.0.1",
     "@hapi/hapi": "21.4.10",
     "@vitest/coverage-istanbul": "^4.1.10",
