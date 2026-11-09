@@ -46,11 +46,11 @@
     "@defra/lis-infra-eslint-config": "^0.12.3",
     "@hapi/boom": "10.0.1",
     "@hapi/hapi": "21.4.13",
-    "@vitest/coverage-istanbul": "^4.1.10",
+    "@vitest/coverage-istanbul": "^5.1.0",
     "audit-ci": "^7.1.0",
     "eslint": "^9.0.0",
     "husky": "^9.1.7",
     "prettier": "^3.9.10",
-    "vitest": "^4.1.10"
+    "vitest": "^5.1.0"
   }
 }
