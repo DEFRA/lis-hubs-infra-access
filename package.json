@@ -43,12 +43,12 @@
   "devDependencies": {
     "@defra/lis-hubs-infra-core": "^0.33.3",
     "@defra/lis-hubs-infra-registry": "^0.13.3",
-    "@defra/lis-infra-eslint-config": "^0.12.3",
+    "@defra/lis-infra-eslint-config": "^0.12.7",
     "@hapi/boom": "10.0.1",
     "@hapi/hapi": "21.4.13",
     "@vitest/coverage-istanbul": "^5.1.0",
     "audit-ci": "^7.1.0",
-    "eslint": "^9.0.0",
+    "eslint": "^10.14.0",
     "husky": "^9.1.7",
     "prettier": "^3.9.10",
     "vitest": "^5.1.0"
