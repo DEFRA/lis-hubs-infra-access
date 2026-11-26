@@ -296,7 +296,8 @@ Before releasing a change, also run the tests of each consuming repo against the
 
 ## Pipelines
 
-Build, versioning and publishing run in GitHub Actions (`.github/workflows`) using Cake scripts (`*.cake`):
+Build, versioning and publishing run in GitHub Actions (`.github/workflows`) using the shared
+composite actions in [lis-github-actions](https://github.com/DEFRA/lis-github-actions):
 
 - **Pull request to `main`**: validate (format, lint, test), Sonar analysis, version check
 - **Push to a `feature/` or `hotfix/` branch**: prerelease version and tag
